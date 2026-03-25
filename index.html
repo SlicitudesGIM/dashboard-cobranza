@@ -1134,11 +1134,11 @@ const GH_FILES = {
 };
 
 function ghRawUrl(filename) {
-  return `https://raw.githubusercontent.com/${GH.user}/${GH.repo}/main/datos/${filename}?t=${Date.now()}`;
+  return `https://raw.githubusercontent.com/${GH.user}/${GH.repo}/main/data/${filename}?t=${Date.now()}`;
 }
 
 function ghApiUrl(filename) {
-  return `https://api.github.com/repos/${GH.user}/${GH.repo}/contents/datos/${filename}`;
+  return `https://api.github.com/repos/${GH.user}/${GH.repo}/contents/data/${filename}`;
 }
 
 function toggleGitHubAdmin() {
