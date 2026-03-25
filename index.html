@@ -1,0 +1,3453 @@
+<!DOCTYPE html>
+<!-- Dashboard de Cobranza v1.0 | 2026-03-25 | Anthropic Claude -->
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Dashboard de Control de Cobranza - Protección Familiar y Valles Unidos">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="SAMEORIGIN">
+<title>Control de Cobranza — PF & VU</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Cobranza — Control Diario</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script>
+// Registrar plugin pero con display:false por defecto — solo activo donde se declare explícitamente
+if (typeof ChartDataLabels !== 'undefined') {
+  Chart.register(ChartDataLabels);
+  Chart.defaults.set('plugins.datalabels', { display: false });
+}
+</script>
+<!-- Fuentes del sistema (sin dependencia de Google Fonts) -->
+<style>
+  :root {
+    --bg:             #f4f7f5;
+    --surface:        #ffffff;
+    --surface2:       #eef4f0;
+    --border:         #d4e4da;
+    --green-darkest:  #1a5c3a;
+    --green-dark:     #276b47;
+    --green-mid:      #3a9b63;
+    --green-light:    #6abf8a;
+    --green-pale:     #b6dfc8;
+    --green-bg:       #e8f5ee;
+    --accent:         #276b47;
+    --accent3:        #3a9b63;
+    --text:           #1c2e24;
+    --text2:          #5a7a65;
+    --p1: #c0392b; --p2: #d4691e; --p3: #c89a00; --p4: #5a8a2e;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-body); min-height: 100vh; }
+
+  /* ── UPLOAD ── */
+  #upload-screen {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 28px; padding: 32px;
+    background: linear-gradient(135deg, #e8f5ee 0%, #c8e8d6 50%, #f4f7f5 100%);
+  }
+  .upload-logo { font-family: var(--font-head); font-size: 12px; font-weight: 700; letter-spacing: 4px; color: var(--green-dark); text-transform: uppercase; }
+  .upload-title { font-family: var(--font-head); font-size: 32px; font-weight: 800; text-align: center; line-height: 1.15; color: var(--green-darkest); }
+  .upload-title span { color: var(--green-dark); }
+  .upload-subtitle { color: var(--text2); font-size: 14px; text-align: center; }
+
+  .upload-group { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+  .upload-group-label {
+    font-family: var(--font-head); font-weight: 700; font-size: 13px; letter-spacing: 1px;
+    text-transform: uppercase; color: var(--green-darkest); text-align: center;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 18px; width: 100%;
+  }
+  .upload-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .upload-groups { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; }
+
+  .upload-card {
+    background: var(--surface); border: 1.5px dashed var(--green-pale); border-radius: 14px;
+    padding: 22px 20px; width: 200px; text-align: center; cursor: pointer;
+    transition: all 0.2s; position: relative; overflow: hidden;
+    box-shadow: 0 2px 10px rgba(39,107,71,0.07);
+  }
+  .upload-card:hover { border-color: var(--green-dark); background: var(--green-bg); }
+  .upload-card.loaded { border-color: var(--green-mid); border-style: solid; background: #f0faf4; }
+  .upload-card.optional { border-color: #c8e0d0; }
+  .upload-card input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .upload-icon { font-size: 28px; margin-bottom: 8px; }
+  .upload-card-title { font-family: var(--font-head); font-weight: 700; font-size: 13px; margin-bottom: 4px; color: var(--green-darkest); }
+  .upload-card-sub { color: var(--text2); font-size: 11px; line-height: 1.4; }
+  .upload-card .check { color: var(--green-mid); font-size: 18px; position: absolute; top: 10px; right: 12px; display: none; font-weight: 700; }
+  .upload-card.loaded .check { display: block; }
+  .opt-badge { display: inline-block; font-size: 10px; background: var(--green-bg); color: var(--green-dark); border-radius: 99px; padding: 1px 8px; margin-top: 4px; font-weight: 600; }
+
+  .btn-launch {
+    background: var(--green-dark); color: #fff; border: none; padding: 14px 38px;
+    font-family: var(--font-head); font-weight: 700; font-size: 15px; border-radius: 10px;
+    cursor: pointer; transition: all 0.2s; opacity: 0.35; pointer-events: none;
+  }
+  .btn-launch.ready { opacity: 1; pointer-events: all; }
+  .btn-launch.ready:hover { background: var(--green-darkest); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(39,107,71,0.25); }
+  .upload-status { color: var(--text2); font-size: 13px; min-height: 20px; text-align: center; }
+
+  /* ── TOPBAR / NAV ── */
+  #app { display: none; }
+  .topbar {
+    background: var(--green-darkest); border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 0; position: sticky; top: 0; z-index: 100;
+    flex-direction: column;
+  }
+  .topbar-row1 { display: flex; align-items: center; justify-content: space-between; padding: 12px 28px; }
+  .topbar-brand { font-family: var(--font-head); font-weight: 800; font-size: 17px; display: flex; align-items: center; gap: 10px; color: #fff; }
+  .topbar-brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green-light); display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .topbar-date { color: var(--green-pale); font-size: 13px; }
+  .topbar-reload { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: var(--font-body); transition: all 0.2s; }
+  .topbar-reload:hover { background: var(--green-dark); }
+
+  /* ── Segunda fila del topbar: Metas + Resumen ── */
+  .topbar-row2 { display: flex; gap: 0; padding: 0 20px; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); overflow-x: auto; }
+  .topbar-tab { padding: 10px 22px; font-family: var(--font-head); font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.6); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.18s; white-space: nowrap; user-select: none; }
+  .topbar-tab:hover { color: #fff; background: rgba(255,255,255,0.07); }
+  .topbar-tab.active { color: #fff; border-bottom-color: #86EFAC; background: rgba(255,255,255,0.10); }
+
+  /* nav-tabs bar removed — Metas y Resumen viven en topbar-row2 */
+
+  /* ── GESTION BLOCK ── */
+  #section-gestion { padding: 0 !important; background: transparent !important; }
+  .gestion-header { background: var(--green-darkest); color: #fff; display: flex; flex-direction: column; border-radius: 10px 10px 0 0; overflow: hidden; }
+  .gestion-header-top { display: flex; align-items: center; gap: 14px; padding: 18px 28px 14px; }
+  .gestion-icon { font-size: 26px; flex-shrink: 0; }
+  .gestion-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+  .gestion-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .gestion-subtabs { display: flex; gap: 0; padding: 0 16px; overflow-x: auto; flex-wrap: nowrap; border-top: 1px solid rgba(255,255,255,0.13); }
+  .gestion-tab { padding: 11px 18px; font-family: var(--font-head); font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.58); cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.18s; white-space: nowrap; user-select: none; }
+  .gestion-tab:hover { color: #fff; background: rgba(255,255,255,0.09); }
+  .gestion-tab.active { color: #fff; border-bottom-color: #86EFAC; background: rgba(255,255,255,0.11); }
+  .gestion-body { background: var(--surface); border: 1px solid var(--border); border-top: none; border-radius: 0 0 12px 12px; min-height: 400px; }
+  .gestion-body .section-inner { display: none; padding: 28px; }
+  .gestion-body .section-inner.active { display: block; }
+
+  /* ── section-inner overrides ── */
+  .section-inner { background: transparent !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; }
+
+  /* ── EMPRESA TABS (dentro de cada bloque) ── */
+  .emp-tabs { display: flex; gap: 0; margin-bottom: 22px; background: var(--surface2); border-radius: 10px; padding: 4px; width: fit-content; border: 1px solid var(--border); }
+  .emp-tab { padding: 7px 14px; font-family: var(--font-head); font-size: 12px; font-weight: 700; color: var(--text2); cursor: pointer; border-radius: 7px; transition: all 0.18s; white-space: nowrap; letter-spacing: 0.3px; }
+  .emp-tab:hover { color: var(--green-dark); }
+  .emp-tab.active { background: var(--green-darkest); color: #fff; box-shadow: 0 2px 8px rgba(26,92,58,0.2); }
+
+  /* ── CONTENT ── */
+  .content { padding: 26px; max-width: 1400px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── KPI GRID ── */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; position: relative; overflow: hidden; transition: all 0.2s;
+    box-shadow: 0 1px 5px rgba(39,107,71,0.05);
+  }
+  .kpi-card:hover { border-color: var(--green-mid); box-shadow: 0 4px 14px rgba(39,107,71,0.09); transform: translateY(-1px); }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; width:4px; height:100%; background: var(--green-dark); border-radius: 12px 0 0 12px; }
+  .kpi-card.green::before { background: var(--green-mid); }
+  .kpi-card.red::before   { background: var(--p1); }
+  .kpi-card.dark::before  { background: var(--green-darkest); }
+  .kpi-card.lite::before  { background: var(--green-light); }
+  .kpi-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text2); margin-bottom: 9px; }
+  .kpi-value { font-family: var(--font-head); font-size: 26px; font-weight: 800; line-height: 1; margin-bottom: 5px; color: var(--green-darkest); }
+  .kpi-sub { font-size: 11px; color: var(--text2); }
+
+  /* ── PROGRESS ── */
+  .progress-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 22px; box-shadow: 0 1px 5px rgba(39,107,71,0.05); }
+  .progress-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; }
+  .progress-title { font-family: var(--font-head); font-weight: 700; font-size: 14px; color: var(--green-darkest); }
+  .progress-pct { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--green-dark); }
+  .progress-bar-bg { height: 11px; background: var(--green-bg); border-radius: 99px; overflow: hidden; border: 1px solid var(--green-pale); }
+  .progress-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--green-mid), var(--green-darkest)); transition: width 1s ease; }
+  .progress-details { display: flex; gap: 22px; margin-top: 10px; flex-wrap: wrap; }
+  .progress-detail { font-size: 12px; color: var(--text2); }
+  .progress-detail strong { color: var(--green-darkest); }
+
+  /* ── CHARTS ── */
+  .chart-grid   { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 1px 5px rgba(39,107,71,0.05); }
+  .chart-title { font-family: var(--font-head); font-weight: 700; font-size: 13px; margin-bottom: 16px; display: flex; align-items: center; gap: 7px; color: var(--green-darkest); }
+  .chart-title-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-dark); display: inline-block; }
+
+  /* ── PRIORITY CARDS ── */
+  .priority-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 22px; }
+  .prio-card { background: var(--surface); border-radius: 12px; padding: 18px; border: 1px solid var(--border); text-align: center; position: relative; overflow: hidden; box-shadow: 0 1px 5px rgba(39,107,71,0.05); }
+  .prio-card::after { content:''; position:absolute; top:0; left:0; right:0; height:4px; }
+  .prio-card.p1::after { background: var(--p1); } .prio-card.p2::after { background: var(--p2); }
+  .prio-card.p3::after { background: var(--p3); } .prio-card.p4::after { background: var(--p4); }
+  .prio-badge { display: inline-block; padding: 3px 12px; border-radius: 99px; font-family: var(--font-head); font-weight: 800; font-size: 12px; margin-bottom: 8px; }
+  .p1 .prio-badge { background: rgba(192,57,43,0.1); color: var(--p1); }
+  .p2 .prio-badge { background: rgba(212,105,30,0.1); color: var(--p2); }
+  .p3 .prio-badge { background: rgba(200,154,0,0.1); color: var(--p3); }
+  .p4 .prio-badge { background: rgba(90,138,46,0.12); color: var(--p4); }
+  .prio-count { font-family: var(--font-head); font-size: 32px; font-weight: 800; color: var(--green-darkest); }
+  .prio-label { color: var(--text2); font-size: 11px; margin-top: 3px; }
+  .prio-monto { font-size: 12px; font-weight: 600; margin-top: 7px; color: var(--green-dark); }
+  .prio-desc { font-size: 10px; color: var(--text2); margin-top: 5px; line-height: 1.4; }
+
+  /* ── TABLES ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 22px; box-shadow: 0 1px 5px rgba(39,107,71,0.05); }
+  .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .table-title { font-family: var(--font-head); font-weight: 700; font-size: 13px; color: var(--green-darkest); }
+  .table-count { font-size: 12px; color: var(--text2); }
+  .table-search { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 11px; border-radius: 7px; font-family: var(--font-body); font-size: 13px; outline: none; width: 190px; }
+  .table-search:focus { border-color: var(--green-dark); }
+  .table-scroll { overflow-x: auto; max-height: 400px; overflow-y: auto; }
+  /* ── Mora Matrix ── */
+  .mora-matrix { border-collapse: collapse; font-size: 11px; width: 100%; }
+  .mora-matrix th { background: var(--green-darkest); color: #fff; padding: 6px 8px; text-align: center; font-family: var(--font-head); font-size: 10px; white-space: nowrap; position: sticky; top: 0; z-index: 1; }
+  .mora-matrix th.row-header { background: var(--green-dark); min-width: 80px; text-align: left; }
+  .mora-matrix td { padding: 5px 8px; text-align: center; border: 1px solid var(--border); font-size: 11px; }
+  .mora-matrix td.row-label { background: var(--green-darkest); color: #fff; font-family: var(--font-head); font-weight: 700; font-size: 10px; text-align: left; white-space: nowrap; }
+  .mora-matrix td.total-col { background: var(--surface2); font-weight: 700; border-left: 2px solid var(--green-dark); }
+  .mora-matrix tr.total-row td { background: var(--surface2); font-weight: 700; border-top: 2px solid var(--green-dark); }
+  .cell-rojo    { background: #c0392b;  color: #fff; font-weight: 800; }
+  .cell-naranja { background: #e67e22;  color: #fff; font-weight: 800; }
+  .cell-amarillo{ background: #f1c40f;  color: #5a3e00; font-weight: 800; }
+  .cell-verde   { background: #27ae60;  color: #fff; font-weight: 700; }
+  .cell-zero    { background: #f4f7f5;  color: #c0c0c0; font-size: 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface2); padding: 9px 13px; text-align: left; font-family: var(--font-head); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--green-darkest); position: sticky; top: 0; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  td { padding: 9px 13px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--text); }
+  tr:hover td { background: var(--green-bg); }
+  tr:last-child td { border-bottom: none; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .badge-p1 { background: rgba(192,57,43,0.1); color: var(--p1); }
+  .badge-p2 { background: rgba(212,105,30,0.1); color: var(--p2); }
+  .badge-p3 { background: rgba(200,154,0,0.1); color: var(--p3); }
+  .badge-p4 { background: rgba(90,138,46,0.12); color: var(--p4); }
+  .badge-ok { background: var(--green-bg); color: var(--green-dark); }
+
+  /* ── FILTERS ── */
+  .filter-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 18px; }
+  .filter-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 7px 11px; border-radius: 7px; font-family: var(--font-body); font-size: 13px; outline: none; cursor: pointer; }
+  .filter-select:focus { border-color: var(--green-dark); }
+  .filter-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+
+  /* ── SECTION HEADER ── */
+  .section-header { margin-bottom: 20px; }
+  .section-header h2 { font-family: var(--font-head); font-size: 20px; font-weight: 800; margin-bottom: 3px; color: var(--green-darkest); }
+  .section-header p { color: var(--text2); font-size: 13px; }
+
+  .today-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+
+  .saved-badge {
+    margin-top: 8px; font-size: 10px; font-weight: 600; color: var(--green-dark);
+    background: var(--green-bg); border: 1px solid var(--green-pale);
+    border-radius: 99px; padding: 2px 10px; display: inline-block; line-height: 1.6;
+  }
+  .upload-card.saved-ok { border-color: var(--green-pale); border-style: solid; background: #f6fcf8; }
+  .upload-card.saved-ok .upload-icon { opacity: 0.7; }
+
+  /* ── EXPORT BUTTON ── */
+  .btn-export {
+    background: var(--green-darkest); color: #fff; border: none;
+    padding: 9px 20px; border-radius: 8px; font-family: var(--font-head);
+    font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 7px; white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(26,92,58,0.2);
+  }
+  .btn-export:hover { background: var(--green-dark); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(26,92,58,0.25); }
+
+  /* ── CRITICAL BANNER ── */
+  .critico-banner {
+    background: rgba(192,57,43,0.06); border: 1.5px solid rgba(192,57,43,0.25);
+    border-radius: 10px; padding: 12px 18px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--p1); font-weight: 600;
+  }
+
+  /* ── GRUPO HEADER en tabla detalle ── */
+  .grupo-header td {
+    background: var(--surface2) !important; font-family: var(--font-head);
+    font-weight: 700; font-size: 12px; color: var(--green-darkest);
+    border-top: 2px solid var(--border) !important; letter-spacing: 0.3px;
+  }
+
+  @media(max-width:768px){
+    .chart-grid,.chart-grid-3,.today-grid { grid-template-columns: 1fr; }
+    .priority-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .upload-groups { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ UPLOAD SCREEN ══════════ -->
+<div id="upload-screen">
+  <div class="upload-logo">⬤ Control de Cobranza — PF & VU</div>
+  <div class="upload-title">Dashboard de<br><span>Recuperación Diaria</span></div>
+  <div class="upload-subtitle" id="upload-subtitle">Los datos se guardan en este navegador. Sube solo lo que haya cambiado.</div>
+
+  <div class="upload-groups">
+    <!-- PF -->
+    <div class="upload-group">
+      <div class="upload-group-label">🏢 Protección Familiar (PF)</div>
+      <div class="upload-row">
+        <div class="upload-card" id="card-cartinicial1">
+          <input type="file" id="file-cartinicial1" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">📌</div>
+          <div class="upload-card-title">CARTERA INICIAL</div>
+          <div class="upload-card-sub">Carga 1 vez al mes · Fija metas</div>
+          <div class="saved-badge" id="saved-cartinicial1" style="display:none"></div>
+        </div>
+        <div class="upload-card" id="card-cartera1">
+          <input type="file" id="file-cartera1" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">📋</div>
+          <div class="upload-card-title">CARTERA DIARIA</div>
+          <div class="upload-card-sub">Actualiza mora y saldos</div>
+          <div class="saved-badge" id="saved-cartera1" style="display:none"></div>
+        </div>
+        <div class="upload-card" id="card-recaudo1">
+          <input type="file" id="file-recaudo1" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">💰</div>
+          <div class="upload-card-title">RECAUDO</div>
+          <div class="upload-card-sub">Carga diaria de pagos</div>
+          <div class="saved-badge" id="saved-recaudo1" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VU -->
+    <div class="upload-group">
+      <div class="upload-group-label">🏢 Valles Unidos (VU) <span class="opt-badge">Opcional</span></div>
+      <div class="upload-row">
+        <div class="upload-card optional" id="card-cartinicial2">
+          <input type="file" id="file-cartinicial2" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">📌</div>
+          <div class="upload-card-title">CARTERA INICIAL</div>
+          <div class="upload-card-sub">Carga 1 vez al mes · Fija metas</div>
+          <div class="saved-badge" id="saved-cartinicial2" style="display:none"></div>
+        </div>
+        <div class="upload-card optional" id="card-cartera2">
+          <input type="file" id="file-cartera2" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">📋</div>
+          <div class="upload-card-title">CARTERA DIARIA</div>
+          <div class="upload-card-sub">Actualiza mora y saldos</div>
+          <div class="saved-badge" id="saved-cartera2" style="display:none"></div>
+        </div>
+        <div class="upload-card optional" id="card-recaudo2">
+          <input type="file" id="file-recaudo2" accept=".xlsx,.xls">
+          <span class="check">✓</span>
+          <div class="upload-icon">💰</div>
+          <div class="upload-card-title">RECAUDO</div>
+          <div class="upload-card-sub">Carga diaria de pagos</div>
+          <div class="saved-badge" id="saved-recaudo2" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="upload-status" id="upload-status">Verificando datos guardados...</div>
+  <button class="btn-launch" id="btn-launch" onclick="launchDashboard()">Abrir Dashboard →</button>
+</div>
+
+<!-- ══════════ MAIN APP ══════════ -->
+<div id="app">
+  <div class="topbar">
+    <!-- Fila 1: marca + fecha + botón -->
+    <div class="topbar-row1">
+      <div class="topbar-brand"><span class="topbar-brand-dot"></span>Control de Cobranza</div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <span class="topbar-date" id="topbar-date"></span>
+        <span style="color:var(--green-pale);font-size:11px;opacity:0.7" id="topbar-saved"></span>
+        <button class="topbar-reload" onclick="showUpload()">↑ Gestionar datos</button>
+      </div>
+    </div>
+    <!-- Fila 2: Metas + Resumen como pestañas fijas -->
+    <div class="topbar-row2">
+      <div class="topbar-tab active" onclick="switchTopTab('metas')" data-toptab="metas">🎯 Metas del Mes</div>
+      <div class="topbar-tab" onclick="switchTopTab('resumen')" data-toptab="resumen">📊 Resumen Ejecutivo</div>
+      <div class="topbar-tab" onclick="switchTopTab('gestion')" data-toptab="gestion">📋 Control de Cobranza</div>
+    </div>
+  </div>
+  <div class="content">
+
+    <!-- ══ BLOQUE 1: METAS ══ -->
+    <!-- ── BLOQUE METAS ── -->
+    <div class="section-inner active" id="section-metas">
+      <div class="section-header">
+        <h2>Metas del Mes</h2>
+        <p>Calculado exclusivamente desde la Cartera Inicial — fijo al inicio del mes</p>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div class="emp-tabs" id="emp-tabs-metas" style="margin-bottom:0">
+          <div class="emp-tab active" onclick="setEmp('metas','ambas')" data-val="ambas">Ambas</div>
+          <div class="emp-tab" onclick="setEmp('metas','e1')" id="etab-metas-e1" data-val="e1">Protección Familiar</div>
+          <div class="emp-tab" onclick="setEmp('metas','e2')" id="etab-metas-e2" style="display:none" data-val="e2">Valles Unidos</div>
+        </div>
+        <div class="filter-bar" id="filtros-vu-metas" style="margin-bottom:0;display:none">
+          <span class="filter-label">CON_INHUMADO:</span>
+          <select class="filter-select" id="filter-metas-inhumado" onchange="renderMetas()">
+            <option value="">Todos</option>
+            <option value="SI">SI</option>
+            <option value="NO">NO</option>
+          </select>
+          <span class="filter-label">ESTADO:</span>
+          <select class="filter-select" id="filter-metas-estado" onchange="renderMetas()">
+            <option value="">Todos</option>
+            <option value="UTILIZADO">UTILIZADO</option>
+            <option value="ACTIVO VALIDADO">ACTIVO VALIDADO</option>
+            <option value="ACTIVO PEND VALIDAR">ACTIVO PEND VALIDAR</option>
+          </select>
+        </div>
+      </div>
+      <div class="kpi-grid" id="kpis-metas"></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Distribución por Tipo de Contrato</div>
+          <canvas id="chart-metas-tipo" height="220"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Meta por Día de Pago</div>
+          <div class="table-scroll" id="tabla-metas-dia" style="max-height:220px"></div>
+          <div id="tabla-metas-dia-total" style="border-top:2px solid var(--border);padding:8px 13px;display:flex;justify-content:space-between;background:var(--surface2);border-radius:0 0 8px 8px;margin-top:2px">
+            <span style="font-family:var(--font-head);font-weight:700;font-size:12px;color:var(--green-darkest)">TOTAL MES</span>
+            <span id="total-dia-contratos" style="font-weight:700;font-size:13px;color:var(--green-darkest)">—</span>
+            <span id="total-dia-monto" style="font-weight:700;font-size:13px;color:var(--green-dark)">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">📊 Mora Cartera Base Inicial</span>
+          <span class="table-count" id="count-metas"></span>
+        </div>
+        <!-- Leyenda semáforo -->
+        <div style="display:flex;gap:18px;flex-wrap:wrap;padding:10px 14px 4px;font-size:12px;color:var(--text2)">
+          <span>🔴 Rojo: NP ≥120 y Mora ≥120</span>
+          <span>🟠 Naranja: 90–119 en uno y >120 en otro</span>
+          <span>🟡 Amarillo: 60–89 en uno y >60 en otro</span>
+          <span>🟢 Verde: demás casos</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:20px;padding:10px 0 4px">
+          <div>
+            <div style="font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--green-darkest);padding:0 2px 6px">Tabla 1 — Contratos</div>
+            <div class="table-scroll" id="tabla-mora-matriz-contratos"></div>
+          </div>
+          <div>
+            <div style="font-family:var(--font-head);font-size:12px;font-weight:700;color:var(--green-darkest);padding:0 2px 6px">Tabla 2 — Saldo Contrato ($)</div>
+            <div class="table-scroll" id="tabla-mora-matriz-saldo"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BLOQUE 2: RESUMEN EJECUTIVO ══ -->
+    <!-- ── BLOQUE 1: RESUMEN ── -->
+    <div class="section-inner" id="section-resumen">
+      <div class="section-header">
+        <h2>Resumen Ejecutivo</h2>
+        <p>Vista global del avance de recuperación — actualizado al día de carga</p>
+      </div>
+      <div class="emp-tabs" id="emp-tabs-resumen">
+        <div class="emp-tab active" onclick="setEmp('resumen','ambas')" data-val="ambas">Ambas</div>
+        <div class="emp-tab" onclick="setEmp('resumen','e1')" id="etab-resumen-e1" data-val="e1">Protección Familiar</div>
+        <div class="emp-tab" onclick="setEmp('resumen','e2')" id="etab-resumen-e2" style="display:none" data-val="e2">Valles Unidos</div>
+      </div>
+      <div class="kpi-grid" id="kpis-resumen"></div>
+      <div id="progress-resumen" style="margin:18px 0 22px"></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Recaudo Diario — Monto ($)</div>
+          <canvas id="chart-diario-monto" height="200"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Recaudo Diario — Contratos</div>
+          <canvas id="chart-diario-contratos" height="200"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card" style="grid-column:span 2">
+          <div class="chart-title"><span class="chart-title-dot"></span>Variación de Mora — Cartera Inicial vs Cartera Diaria</div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:10px">
+            🟢 Verde/negativo = la mora bajó · 🔴 Rojo/positivo = la mora subió · Celda = (diario − inicial)
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div>
+              <div style="font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--green-darkest);margin-bottom:6px">Δ Contratos (Diario − Inicial)</div>
+              <div class="table-scroll" id="tabla-delta-contratos"></div>
+            </div>
+            <div>
+              <div style="font-family:var(--font-head);font-size:11px;font-weight:700;color:var(--green-darkest);margin-bottom:6px">Δ Saldo Contrato ($) (Diario − Inicial)</div>
+              <div class="table-scroll" id="tabla-delta-saldo"></div>
+            </div>
+          </div>
+        </div>
+        <div class="chart-card" style="grid-column:span 2">
+          <div class="chart-title"><span class="chart-title-dot"></span>Medio de Pago — Contratos</div>
+          <canvas id="chart-mediopago-contratos" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ BLOQUE 3: INFORME DE GESTIÓN ══ -->
+    <div class="section" id="section-gestion" style="display:none">
+      <div class="gestion-header">
+        <div class="gestion-header-top">
+          <span class="gestion-icon">📋</span>
+          <div>
+            <div class="gestion-title">Control de Cobranza</div>
+            <div class="gestion-sub">Selecciona un módulo de análisis</div>
+          </div>
+        </div>
+        <div class="gestion-subtabs" id="gestion-subtabs">
+          <div class="gestion-tab active" onclick="switchGestion('mora')" data-sec="mora">🔴 Mora</div>
+          <div class="gestion-tab" onclick="switchGestion('cartera')" data-sec="cartera">📈 Avance</div>
+          <div class="gestion-tab" onclick="switchGestion('recaudo')" data-sec="recaudo">💰 Recaudo Diario</div>
+          <div class="gestion-tab" onclick="switchGestion('metadia')" data-sec="metadia">📅 Meta por Día</div>
+          <div class="gestion-tab" onclick="switchGestion('criticos')" data-sec="criticos">🚨 Mora Crítica</div>
+          <div class="gestion-tab" onclick="switchGestion('sinpago')" data-sec="sinpago">🟡 Cero Cuotas</div>
+        </div>
+      </div>
+      <div class="gestion-body">
+        <!-- ── BLOQUE 2: MORA ── -->
+    <div class="section-inner" id="section-mora">
+      <div class="section-header">
+        <h2>Análisis de Mora</h2>
+        <p>Clasificación de riesgo por semáforo — días de mora cruzados con días de no pago</p>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div class="emp-tabs" id="emp-tabs-mora" style="margin-bottom:0">
+          <div class="emp-tab active" onclick="setEmp('mora','ambas')" data-val="ambas">Ambas</div>
+          <div class="emp-tab" onclick="setEmp('mora','e1')" id="etab-mora-e1" data-val="e1">Protección Familiar</div>
+          <div class="emp-tab" onclick="setEmp('mora','e2')" id="etab-mora-e2" style="display:none" data-val="e2">Valles Unidos</div>
+        </div>
+        <div class="filter-bar" id="filtros-vu-mora" style="margin-bottom:0;display:none">
+          <span class="filter-label">CON_INHUMADO:</span>
+          <select class="filter-select" id="filter-mora-inhumado" onchange="renderMora()">
+            <option value="">Todos</option><option value="SI">SI</option><option value="NO">NO</option>
+          </select>
+        </div>
+      </div>
+      <div class="kpi-grid" id="semaforo-cards"></div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Contratos por Nivel de Riesgo</div>
+          <div style="max-width:300px;margin:0 auto"><canvas id="chart-semaforo-count" height="240"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title"><span class="chart-title-dot"></span>Saldo Contrato por Nivel de Riesgo ($)</div>
+          <canvas id="chart-semaforo-saldo" height="240"></canvas>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-bottom:22px">
+        <div class="table-header"><span class="table-title">📊 Tabla Resumen por Nivel de Riesgo</span></div>
+        <div class="table-scroll" id="tabla-semaforo-resumen"></div>
+      </div>
+      <div class="priority-grid" id="prio-cards"></div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Contratos en Mora — Detalle</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="filter-select" id="filter-prio" onchange="renderMoraTable()">
+              <option value="">Todas las prioridades</option>
+              <option value="P0">P0 — Cobro Crítico</option>
+              <option value="P1">P1 — Crítico</option>
+              <option value="P2">P2 — Alto</option>
+              <option value="P3">P3 — Medio</option>
+              <option value="P4">P4 — Bajo</option>
+            </select>
+            <input class="table-search" type="text" placeholder="Buscar contrato o cliente..." id="search-mora" oninput="renderMoraTable()">
+            <button class="btn-export" onclick="exportarMora()">⬇ Descargar Excel</button>
+          </div>
+        </div>
+        <div class="table-scroll" id="tabla-mora"></div>
+      </div>
+    </div>
+        <!-- ── BLOQUE CARTERA ── -->
+    <div class="section-inner" id="section-cartera">
+      <div class="section-header">
+        <h2>Avance</h2>
+        <p>Contratos con pago vs sin pago a la fecha — Cartera Diaria</p>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;">
+        <div class="emp-tabs" id="emp-tabs-cartera" style="margin-bottom:0">
+          <div class="emp-tab active" onclick="setEmp('cartera','ambas')" data-val="ambas">Ambas</div>
+          <div class="emp-tab" onclick="setEmp('cartera','e1')" id="etab-cartera-e1" data-val="e1">Protección Familiar</div>
+          <div class="emp-tab" onclick="setEmp('cartera','e2')" id="etab-cartera-e2" style="display:none" data-val="e2">Valles Unidos</div>
+        </div>
+        <div class="filter-bar" id="filtros-vu-cartera" style="margin-bottom:0;display:none">
+          <span class="filter-label">CON_INHUMADO:</span>
+          <select class="filter-select" id="filter-cartera-inhumado" onchange="renderCartera()">
+            <option value="">Todos</option><option value="SI">SI</option><option value="NO">NO</option>
+          </select>
+          <span class="filter-label">ESTADO:</span>
+          <select class="filter-select" id="filter-cartera-estado" onchange="renderCartera()">
+            <option value="">Todos</option>
+            <option value="UTILIZADO">UTILIZADO</option>
+            <option value="ACTIVO VALIDADO">ACTIVO VALIDADO</option>
+            <option value="ACTIVO PEND VALIDAR">ACTIVO PEND VALIDAR</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpis-cartera"></div>
+
+      <!-- Gráfica pago vs sin pago -->
+      <div class="chart-grid" style="margin-top:18px">
+        <div class="chart-card" style="grid-column:span 2">
+          <div class="chart-title"><span class="chart-title-dot"></span>Avance en Contratos — Con Pago vs Sin Pago (mora >1d)</div>
+          <canvas id="chart-cartera-avance" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabla matriz sin pago por rango mora × no pago -->
+      <div class="table-wrap" style="margin-top:18px">
+        <div class="table-header">
+          <span class="table-title">Contratos Sin Pago por Nivel de Mora</span>
+          <span class="table-count" id="count-sinpago-avance"></span>
+        </div>
+        <div style="font-size:11px;color:var(--text2);padding:6px 14px 2px;display:flex;gap:18px;flex-wrap:wrap">
+          <span>🔴 NP≥120 y Mora≥120</span><span>🟠 90–119 cruzado con >120</span>
+          <span>🟡 60–89 cruzado con >60</span><span>🟢 demás</span>
+        </div>
+        <div class="table-scroll" id="tabla-avance-matriz"></div>
+      </div>
+
+      <!-- Tabla detalle sin pago -->
+      <div class="table-wrap" style="margin-top:18px">
+        <div class="table-header">
+          <span class="table-title">Detalle Contratos Sin Pago (mora >1d)</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="table-search" type="text" placeholder="Buscar cliente o contrato..." id="search-avance" oninput="renderCartera()">
+            <button class="btn-export" onclick="exportarAvance()">⬇ Descargar Excel</button>
+          </div>
+        </div>
+        <div class="table-scroll" id="tabla-avance-detalle"></div>
+      </div>
+    </div>
+        <!-- ── BLOQUE 3: RECAUDO ── -->
+    <div class="section-inner" id="section-recaudo">
+      <div class="section-header">
+        <h2>Control Diario de Recaudo</h2>
+        <p>Detalle de pagos recibidos y contratos pendientes de cobro</p>
+      </div>
+      <div class="emp-tabs" id="emp-tabs-recaudo">
+        <div class="emp-tab active" onclick="setEmp('recaudo','ambas')" data-val="ambas">Ambas</div>
+        <div class="emp-tab" onclick="setEmp('recaudo','e1')" id="etab-recaudo-e1" data-val="e1">Protección Familiar</div>
+        <div class="emp-tab" onclick="setEmp('recaudo','e2')" id="etab-recaudo-e2" style="display:none" data-val="e2">Valles Unidos</div>
+      </div>
+      <div class="filter-bar">
+        <span class="filter-label">Fecha:</span>
+        <select class="filter-select" id="filter-fecha" onchange="renderRecaudoSection()"></select>
+      </div>
+      <div class="kpi-grid" id="kpis-recaudo"></div>
+      <div class="today-grid">
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">✅ Pagos Registrados</span>
+            <span class="table-count" id="count-pagos"></span>
+          </div>
+          <div class="table-scroll" id="tabla-pagos"></div>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">⏳ Pendientes (sin pago en el período)</span>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span class="table-count" id="count-pendientes"></span>
+              <select class="filter-select" id="filter-pendientes-prio" onchange="renderRecaudoSection()" style="font-size:11px;padding:4px 8px">
+                <option value="">Todas las prioridades</option>
+                <option value="P0">P0 — Cobro Crítico</option>
+                <option value="P1">P1 — Crítico</option>
+                <option value="P2">P2 — Alto</option>
+                <option value="P3">P3 — Medio</option>
+                <option value="P4">P4 — Bajo</option>
+                <option value="Sin mora">Sin mora</option>
+              </select>
+              <button class="btn-export" onclick="exportarPendientes()">⬇ Excel</button>
+            </div>
+          </div>
+          <div class="table-scroll" id="tabla-pendientes"></div>
+        </div>
+      </div>
+    </div>
+        <!-- ── BLOQUE 4: META POR DÍA ── -->
+    <div class="section-inner" id="section-metadia">
+      <div class="section-header">
+        <h2>Meta Diaria vs. Recuperación</h2>
+        <p>Contratos y monto esperado por DIA_PAGO vs. lo efectivamente recaudado</p>
+      </div>
+      <div class="emp-tabs" id="emp-tabs-metadia">
+        <div class="emp-tab active" onclick="setEmp('metadia','ambas')" data-val="ambas">Ambas</div>
+        <div class="emp-tab" onclick="setEmp('metadia','e1')" id="etab-metadia-e1" data-val="e1">Protección Familiar</div>
+        <div class="emp-tab" onclick="setEmp('metadia','e2')" id="etab-metadia-e2" style="display:none" data-val="e2">Valles Unidos</div>
+      </div>
+      <div class="kpi-grid" id="kpis-metadia"></div>
+      <div class="chart-card" style="margin-bottom:22px;">
+        <div class="chart-title"><span class="chart-title-dot"></span>Meta vs. Recaudado por Día del Mes ($)</div>
+        <canvas id="chart-meta-dia" height="140"></canvas>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Tabla de Meta Diaria — Mes en Curso</span>
+          <span class="table-count" id="meta-dia-total"></span>
+        </div>
+        <div class="table-scroll" id="tabla-meta-dia"></div>
+      </div>
+    </div>
+        <!-- ── BLOQUE 5: MORA CRÍTICA ── -->
+    <div class="section-inner" id="section-criticos">
+      <div class="section-header">
+        <h2>Contratos en Mora Crítica</h2>
+        <p>Contratos con más de 120 días de mora <strong>y</strong> más de 120 días sin pago — Prioridad 1 absoluta</p>
+      </div>
+
+      <!-- Empresa tabs + Botón descarga -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+        <div class="emp-tabs" id="emp-tabs-criticos" style="margin-bottom:0">
+          <div class="emp-tab active" onclick="setEmp('criticos','ambas')" data-val="ambas">Ambas</div>
+          <div class="emp-tab" onclick="setEmp('criticos','e1')" id="etab-criticos-e1" data-val="e1">Protección Familiar</div>
+          <div class="emp-tab" onclick="setEmp('criticos','e2')" id="etab-criticos-e2" style="display:none" data-val="e2">Valles Unidos</div>
+        </div>
+        <button class="btn-export" id="btn-export-criticos" onclick="exportarCriticos()">
+          ⬇ Descargar Excel
+        </button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpis-criticos"></div>
+
+      <!-- Resumen por Líder -->
+      <div class="chart-grid" style="margin-bottom:22px;">
+        <div class="table-wrap" style="margin-bottom:0">
+          <div class="table-header">
+            <span class="table-title">📊 Resumen por Líder</span>
+            <span class="table-count" id="count-por-lider"></span>
+          </div>
+          <div class="table-scroll" id="tabla-criticos-lider"></div>
+        </div>
+        <div class="table-wrap" style="margin-bottom:0">
+          <div class="table-header">
+            <span class="table-title">📊 Resumen por Asesor</span>
+            <span class="table-count" id="count-por-asesor"></span>
+          </div>
+          <div class="table-scroll" id="tabla-criticos-asesor"></div>
+        </div>
+      </div>
+
+      <!-- Tabla detalle completa -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">🚨 Detalle de Contratos Críticos</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="filter-select" id="filter-criticos-grupo" onchange="renderCriticos()">
+              <option value="">Todos</option>
+              <option value="lider">Filtrar por Líder</option>
+              <option value="asesor">Filtrar por Asesor</option>
+            </select>
+            <select class="filter-select" id="filter-criticos-valor" onchange="renderCriticos()" style="min-width:180px">
+              <option value="">— selecciona —</option>
+            </select>
+            <input class="table-search" type="text" placeholder="Buscar contrato o cliente..." id="search-criticos" oninput="renderCriticos()">
+          </div>
+        </div>
+        <div class="table-scroll" id="tabla-criticos-detalle"></div>
+      </div>
+    </div>
+        <!-- ── BLOQUE 6: CERO CUOTAS ── -->
+    <div class="section-inner" id="section-sinpago">
+      <div class="section-header">
+        <h2>Contratos Cero Cuotas</h2>
+        <p>Contratos con CANT_CUOTAS_PAGADAS = 0 y CUOTAS_PENDIENTES = CANTIDAD_CUOTAS — sin ningún pago registrado</p>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+        <div class="emp-tabs" id="emp-tabs-sinpago" style="margin-bottom:0">
+          <div class="emp-tab active" onclick="setEmp('sinpago','ambas')" data-val="ambas">Ambas</div>
+          <div class="emp-tab" onclick="setEmp('sinpago','e1')" id="etab-sinpago-e1" data-val="e1">Protección Familiar</div>
+          <div class="emp-tab" onclick="setEmp('sinpago','e2')" id="etab-sinpago-e2" style="display:none" data-val="e2">Valles Unidos</div>
+        </div>
+        <button class="btn-export" onclick="exportarSinPago()">⬇ Descargar Excel</button>
+      </div>
+
+      <div class="kpi-grid" id="kpis-sinpago"></div>
+
+      <div class="chart-grid" style="margin-bottom:22px;">
+        <div class="table-wrap" style="margin-bottom:0">
+          <div class="table-header">
+            <span class="table-title">📊 Resumen por Líder</span>
+            <span class="table-count" id="count-sinpago-lider"></span>
+          </div>
+          <div class="table-scroll" id="tabla-sinpago-lider"></div>
+        </div>
+        <div class="table-wrap" style="margin-bottom:0">
+          <div class="table-header">
+            <span class="table-title">📊 Resumen por Asesor</span>
+            <span class="table-count" id="count-sinpago-asesor"></span>
+          </div>
+          <div class="table-scroll" id="tabla-sinpago-asesor"></div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">🟡 Detalle de Contratos Cero Cuotas</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <select class="filter-select" id="filter-sinpago-rango" onchange="renderSinPago()">
+              <option value="">Todos los rangos</option>
+              <option value="0-5">Menos de 5 días</option>
+              <option value="6-10">6 a 10 días</option>
+              <option value="11-15">11 a 15 días</option>
+              <option value="16-30">16 a 30 días</option>
+              <option value="31+">Mayor de 30 días</option>
+            </select>
+            <select class="filter-select" id="filter-sinpago-grupo" onchange="renderSinPago()">
+              <option value="">Todos</option>
+              <option value="lider">Filtrar por Líder</option>
+              <option value="asesor">Filtrar por Asesor</option>
+            </select>
+            <select class="filter-select" id="filter-sinpago-valor" onchange="renderSinPago()" style="min-width:200px">
+              <option value="">— selecciona —</option>
+            </select>
+            <input class="table-search" type="text" placeholder="Buscar contrato o cliente..." id="search-sinpago" oninput="renderSinPago()">
+            <button class="btn-export" onclick="exportarSinPagoDetalle()">⬇ Excel</button>
+          </div>
+        </div>
+        <div class="table-scroll" id="tabla-sinpago-detalle"></div>
+      </div>
+    </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<script>
+// ══════════════════════════════════════════
+// DATA & STATE
+// ══════════════════════════════════════════
+const RAW = { cartinicial1:[], cartera1:[], recaudo1:[], cartinicial2:[], cartera2:[], recaudo2:[] };
+let EMP_NAMES = { e1: 'Protección Familiar', e2: 'Valles Unidos' };
+let PROCESSED = {};   // keyed by e1/e2/ambas — uses cartera DIARIA + recaudo
+let PROCESSED_INI = {};  // keyed by e1/e2/ambas — uses cartera INICIAL (metas fijas)
+let CHARTS = {};
+// Empresa seleccionada globalmente — se propaga a todos los bloques
+let GLOBAL_EMP = 'ambas'; // 'ambas' | 'e1' | 'e2'
+
+// EMP_STATE se mantiene como proxy para compatibilidad con getP/getPI
+const EMP_STATE = new Proxy({}, {
+  get: (_, sec) => GLOBAL_EMP,
+  set: (_, sec, val) => { GLOBAL_EMP = val; return true; }
+});
+// Filtros VU activos por sección
+const VU_FILTERS = {
+  mora:    { inhumado:'', estado:'' },
+  metas:   { inhumado:'', estado:'' },
+  cartera: { inhumado:'', estado:'' },
+  criticos:{ inhumado:'', estado:'' },
+  sinpago: { inhumado:'', estado:'' },
+};
+
+// ── IndexedDB ──
+const DB_NAME = 'CobranzaDashboard';
+const DB_VER  = 1;
+const STORE   = 'archivos';
+let   DB      = null;
+
+function abrirDB() {
+  return new Promise((resolve, reject) => {
+    if (DB) return resolve(DB);
+    const req = indexedDB.open(DB_NAME, DB_VER);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
+    };
+    req.onsuccess = e => { DB = e.target.result; resolve(DB); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbSave(key, value) {
+  return abrirDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(value, key);
+    tx.oncomplete = () => resolve(true);
+    tx.onerror    = e => reject(e.target.error);
+  }));
+}
+
+function dbLoad(key) {
+  return abrirDB().then(db => new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror   = e  => reject(e.target.error);
+  }));
+}
+
+// localStorage solo para metadatos livianos
+const LS_META = 'cobranza_meta';
+function metaSave(key, meta) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_META) || '{}');
+    all[key] = meta;
+    localStorage.setItem(LS_META, JSON.stringify(all));
+  } catch(e) {}
+}
+function metaLoad(key) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LS_META) || '{}');
+    return all[key] || null;
+  } catch(e) { return null; }
+}
+function metaLoadNames() {
+  try { return JSON.parse(localStorage.getItem('cobranza_empnames') || 'null'); } catch(e) { return null; }
+}
+function metaSaveNames(names) {
+  try { localStorage.setItem('cobranza_empnames', JSON.stringify(names)); } catch(e) {}
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-CL', { day:'2-digit', month:'2-digit', year:'2-digit' }) +
+         ' ' + d.toLocaleTimeString('es-CL', { hour:'2-digit', minute:'2-digit' });
+}
+
+// ══════════════════════════════════════════
+// INIT — cargar desde IndexedDB al abrir
+// ══════════════════════════════════════════
+async function initFromStorage() {
+  const savedNames = metaLoadNames();
+  if (savedNames) EMP_NAMES = savedNames;
+
+  const keys = ['cartinicial1','cartera1','recaudo1','cartinicial2','cartera2','recaudo2'];
+  for (const k of keys) {
+    try {
+      const saved = await dbLoad(k);
+      const meta  = metaLoad(k);
+      if (saved && saved.length > 0) {
+        RAW[k] = saved;
+        markCard(k, meta);
+      }
+    } catch(e) { console.warn('No se pudo cargar', k, e); }
+  }
+  updateUploadStatus();
+}
+
+function markCard(type, meta) {
+  const card  = document.getElementById('card-' + type);
+  const badge = document.getElementById('saved-' + type);
+  if (!card) return;
+  card.classList.add('loaded', 'saved-ok');
+  if (badge && meta) {
+    badge.style.display = 'inline-block';
+    badge.textContent   = '💾 ' + fmtDate(meta.savedAt) + ' · ' + (meta.rows||0) + ' filas';
+  }
+}
+
+// ══════════════════════════════════════════
+// UPLOAD
+// ══════════════════════════════════════════
+function handleFile(input, type) {
+  const file = input.files[0];
+  if (!file) return;
+
+  // Show loading state
+  const card = document.getElementById('card-' + type);
+  if (card) card.style.opacity = '0.6';
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const wb   = XLSX.read(e.target.result, { type:'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+      RAW[type] = rows;
+
+      // Detect empresa name
+      const empField = rows[0] ? String(rows[0]['EMPRESA'] || '').trim() : '';
+      if (empField) {
+        const eKey = type.includes('1') ? 'e1' : 'e2';
+        EMP_NAMES[eKey] = empField;
+        metaSaveNames(EMP_NAMES);
+      }
+
+      // Save to IndexedDB (sin límite de tamaño)
+      const meta = { savedAt: new Date().toISOString(), rows: rows.length, filename: file.name };
+      try {
+        await dbSave(type, rows);
+        metaSave(type, meta);
+      } catch(dbErr) {
+        console.warn('IndexedDB save error (datos en memoria solamente):', dbErr);
+      }
+
+      if (card) card.style.opacity = '1';
+      markCard(type, meta);
+      updateUploadStatus();
+
+      // Si el dashboard ya está abierto, reprocesar y re-renderizar automáticamente
+      if (document.getElementById('app').style.display !== 'none') {
+        processAll();
+        const activeEl = document.querySelector('.section.active, .section-inner.active');
+        const activeSec = activeEl ? activeEl.id.replace('section-','') : 'metas';
+        if (activeSec === 'gestion') {
+          renderSection(GESTION_ACTIVE);
+        } else {
+          renderSection(activeSec);
+        }
+        // También pre-renderizar resumen y metas en segundo plano
+        if (activeSec !== 'metas')   renderMetas();
+        if (activeSec !== 'resumen') renderResumen();
+      }
+
+    } catch(err) {
+      if (card) card.style.opacity = '1';
+      alert('Error leyendo ' + file.name + ':\n' + err.message);
+    }
+  };
+  reader.onerror = () => {
+    if (card) card.style.opacity = '1';
+    alert('No se pudo leer el archivo. Intenta de nuevo.');
+  };
+  reader.readAsBinaryString(file);
+}
+
+function updateUploadStatus() {
+  // Mínimo requerido: cartera1 + recaudo1 (cartinicial1 es opcional pero recomendado)
+  const e1ok = RAW.cartera1.length > 0 && RAW.recaudo1.length > 0;
+  const e2ok = RAW.cartera2.length > 0 && RAW.recaudo2.length > 0;
+
+  const parts = [];
+  if (RAW.cartinicial1.length) parts.push(`✓ Cartera Inicial PF (${RAW.cartinicial1.length} filas)`);
+  if (RAW.cartera1.length)     parts.push(`✓ Cartera Diaria PF (${RAW.cartera1.length} filas)`);
+  if (RAW.recaudo1.length)     parts.push(`✓ Recaudo PF (${RAW.recaudo1.length} filas)`);
+  if (RAW.cartinicial2.length) parts.push(`✓ Cartera Inicial VU (${RAW.cartinicial2.length} filas)`);
+  if (RAW.cartera2.length)     parts.push(`✓ Cartera Diaria VU (${RAW.cartera2.length} filas)`);
+  if (RAW.recaudo2.length)     parts.push(`✓ Recaudo VU (${RAW.recaudo2.length} filas)`);
+
+  const btn = document.getElementById('btn-launch');
+  if (e1ok) {
+    btn.classList.add('ready');
+    let msg = parts.join('   ');
+    if (!RAW.cartinicial1.length) msg += '   ⚠️ Sin Cartera Inicial PF (metas no disponibles)';
+    if (!e2ok) msg += `   · VU no cargada (opcional)`;
+    document.getElementById('upload-status').textContent = msg;
+  } else {
+    btn.classList.remove('ready');
+    document.getElementById('upload-status').textContent = parts.length
+      ? parts.join('   ') + '   · Falta ' + (!RAW.cartera1.length ? 'Cartera Diaria PF' : 'Recaudo PF')
+      : 'No hay datos guardados. Sube los archivos para comenzar.';
+  }
+}
+
+function showUpload() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('upload-screen').style.display = 'flex';
+}
+
+function launchDashboard() {
+  const hasE2 = RAW.cartera2.length > 0 && RAW.recaudo2.length > 0;
+
+  ['resumen','metas','cartera','mora','recaudo','metadia','criticos','sinpago'].forEach(sec => {
+    const t1 = document.getElementById('etab-' + sec + '-e1');
+    const t2 = document.getElementById('etab-' + sec + '-e2');
+    if (t1) t1.textContent = 'Protección Familiar';
+    if (t2) { t2.textContent = 'Valles Unidos'; t2.style.display = hasE2 ? '' : 'none'; }
+  });
+
+  // Mostrar/ocultar filtros VU según disponibilidad
+  ['filtros-vu-mora','filtros-vu-metas','filtros-vu-cartera'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = hasE2 ? 'flex' : 'none';
+  });
+
+  processAll();
+  document.getElementById('upload-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('topbar-date').textContent = new Date().toLocaleDateString('es-CL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  const m1 = metaLoad('recaudo1'), m2 = metaLoad('recaudo2');
+  const sp = [];
+  if (m1) sp.push('Recaudo PF: ' + fmtDate(m1.savedAt));
+  if (m2) sp.push('Recaudo VU: ' + fmtDate(m2.savedAt));
+  if (sp.length) document.getElementById('topbar-saved').textContent = '💾 ' + sp.join(' · ');
+
+  renderAll();
+}
+
+// ══════════════════════════════════════════
+// INIT ON PAGE LOAD
+// ══════════════════════════════════════════
+window.addEventListener('load', async () => {
+  // Wire file inputs via addEventListener
+  [['file-cartinicial1','cartinicial1'],['file-cartera1','cartera1'],['file-recaudo1','recaudo1'],
+   ['file-cartinicial2','cartinicial2'],['file-cartera2','cartera2'],['file-recaudo2','recaudo2']].forEach(([id, type]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() { handleFile(this, type); });
+  });
+
+  await initFromStorage();
+
+  if (RAW.cartera1.length > 0 && RAW.recaudo1.length > 0) {
+    document.getElementById('upload-subtitle').textContent =
+      '✅ Datos guardados encontrados. Puedes abrir el dashboard o actualizar archivos.';
+    document.getElementById('btn-launch').textContent = 'Abrir Dashboard →';
+  }
+});
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+const fmtMoney = n => (n == null || isNaN(n)) ? '$0' : '$' + Math.round(n).toLocaleString('es-CL');
+const parseNum = v => { if (v===''||v==null) return 0; const n=parseFloat(String(v).replace(/[^0-9.-]/g,'')); return isNaN(n)?0:n; };
+
+// getCuota — para VU usa IMPORTE_CUOTA_ML, para PF usa VALOR_CUOTA
+// Si IMPORTE_CUOTA_ML existe y es > 0 tiene precedencia (identifica registros VU)
+const getCuota = r => {
+  const imp = parseNum(r['IMPORTE_CUOTA_ML']);
+  return imp > 0 ? imp : parseNum(r['VALOR_CUOTA']);
+};
+
+// getSaldo — para VU: IMPORTE_CUOTA_ML × CUOTAS_PENDIENTES; para PF: SALDO_CONTRATO
+const getSaldo = r => {
+  const imp = parseNum(r['IMPORTE_CUOTA_ML']);
+  if (imp > 0) return imp * parseNum(r['CUOTAS_PENDIENTES']);
+  return parseNum(r['SALDO_CONTRATO']);
+};
+
+// getSaldoVencido — para VU: IMPORTE_CUOTA_ML × CANT_CUOTAS_VENCIDAS_IMPAGAS; para PF: SALDO_VENCIDO
+const getSaldoVencido = r => {
+  const imp = parseNum(r['IMPORTE_CUOTA_ML']);
+  if (imp > 0) return imp * parseNum(r['CANT_CUOTAS_VENCIDAS_IMPAGAS']);
+  return parseNum(r['SALDO_VENCIDO']);
+};
+
+function parseDate(str) {
+  if (!str) return null;
+  const s = String(str).trim();
+  if (s==='SIN DATOS'||s==='') return null;
+  const p = s.split('/');
+  if (p.length===3) return new Date(p[2], p[1]-1, p[0]);
+  const d = new Date(s); return isNaN(d)?null:d;
+}
+
+// calcPrioridad — lee de cartera DIARIA (DIAS_DE_MORA y DIAS_DE_NO_PAGO)
+// Se recalcula cada vez que se carga una nueva cartera diaria
+//
+// P0 🔴: 0 cuotas pagadas Y Mora >15 días — Cobro Crítico
+// P1 🔴: NP ≥120 Y Mora ≥120
+// P2 🟠: (NP 90–119 Y Mora >120)  O  (Mora 90–119 Y NP >120)
+// P3 🟡: (NP 60–89 Y Mora >60)   O  (Mora 60–89 Y NP >60)
+// P4 🟢: (NP 30–59) O (Mora 30–59)
+// Sin mora: no cumple ninguna condición anterior
+function calcPrioridad(row) {
+  const diasM  = Math.max(parseNum(row['DIAS_DE_MORA']),    0);
+  const diasNP = Math.max(parseNum(row['DIAS_DE_NO_PAGO']), 0);
+  const cuotas = parseNum(row['CANT_CUOTAS_PAGADAS']);
+
+  // P0: CANT_CUOTAS_PAGADAS = 0  Y  DIAS_DE_MORA >= 16
+  if (cuotas === 0 && diasM >= 16) return 'P0';
+
+  // P1: NP ≥120 Y Mora ≥120
+  if (diasNP >= 120 && diasM >= 120) return 'P1';
+
+  // P2: (NP 90–119 Y Mora >120)  O  (Mora 90–119 Y NP >120)
+  if ((diasNP >= 90 && diasNP <= 119 && diasM > 120) ||
+      (diasM  >= 90 && diasM  <= 119 && diasNP > 120)) return 'P2';
+
+  // P3: (NP 60–89 Y Mora >60)  O  (Mora 60–89 Y NP >60)
+  if ((diasNP >= 60 && diasNP <= 89 && diasM > 60) ||
+      (diasM  >= 60 && diasM  <= 89 && diasNP > 60)) return 'P3';
+
+  // P4: NP > 30  O  Mora > 30  (sin límite superior — los rangos mayores ya fueron capturados)
+  if (diasNP > 30 || diasM > 30) return 'P4';
+
+  return 'Sin mora';
+}
+
+function destroyChart(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
+
+// ── buildMetaDiaria: combina targets (diaPagoMap) con recaudo real (recaudoDiaMap) ──
+function buildMetaDiaria(diaPagoMap, recaudoDiaMap) {
+  return Array.from({length:31},(_,i)=>i+1).map(dia=>{
+    const meta = diaPagoMap[dia]  || {contratos:0, metaMonto:0};
+    const real = recaudoDiaMap[dia] || {monto:0, contratos:new Set()};
+    return { dia,
+      metaContratos:    meta.contratos,
+      metaMonto:        meta.metaMonto,
+      recaudadoMonto:   real.monto,
+      recaudadoContratos: real.contratos.size,
+      pctMonto:     meta.metaMonto  > 0 ? real.monto           / meta.metaMonto  * 100 : null,
+      pctContratos: meta.contratos  > 0 ? real.contratos.size  / meta.contratos  * 100 : null
+    };
+  }).filter(d => d.metaContratos > 0 || d.recaudadoContratos > 0);
+}
+
+function chartScales(type='$') {
+  return {
+    x: { ticks:{color:'#5a7a65',font:{size:10}}, grid:{color:'rgba(212,228,218,0.6)'} },
+    y: { ticks:{color:'#5a7a65',font:{size:10}, callback: v => type==='$' ? '$'+Math.round(v/1000)+'k' : v}, grid:{color:'rgba(212,228,218,0.6)'} }
+  };
+}
+
+// ══════════════════════════════════════════
+// PROCESS ONE EMPRESA
+// ══════════════════════════════════════════
+function processOne(carteraRaw, recaudoRaw) {
+  const EXCLUIR_MORA   = ['PAGADO','ANULADO'];
+  const EXCLUIR_ESTADO = ['INACTIVO'];
+  const INVALIDO_MORA  = ['','NAN','UNDEFINED','NULL']; // SheetJS puede generar "NaN" como string
+
+  // Excluir: NIVEL_MORA vacío/NaN, PAGADO, ANULADO — ESTADO_CONTRATO INACTIVO — SALDO_CONTRATO = 0
+  const carteraActiva = carteraRaw.filter(r => {
+    const mora   = String(r['NIVEL_MORA']  || '').trim().toUpperCase();
+    const estado = String(r['ESTADO_CONTRATO'] || '').trim();
+    const saldo  = getSaldo(r);
+    return !EXCLUIR_MORA.includes(mora) && !INVALIDO_MORA.includes(mora) &&
+           estado !== 'INACTIVO' && saldo > 0;
+  }).map(r => ({...r, _prioridad: calcPrioridad(r)}));
+
+  const metaMonto     = carteraActiva.reduce((s,r) => s+getCuota(r),0);
+  const metaContratos = carteraActiva.length;
+
+  // Filtro VU: cuando ORIGEN_DEUDA existe, conservar solo los que contienen "Crédito"
+  // Para PF el campo está vacío/ausente → no se filtra nada
+  const recaudoFiltrado = recaudoRaw.filter(r => {
+    const origen = String(r['ORIGEN_DEUDA'] || '').trim();
+    if (!origen) return true;                          // PF u otros sin campo → incluir
+    return origen.toLowerCase().includes('crédito') || origen.toLowerCase().includes('credito');
+  });
+
+  const recaudo = recaudoFiltrado.map(r => ({...r, _fecha:parseDate(r['FECHA_PAGO_CUOTA']), _monto:parseNum(r['VALOR_PAGADO'])}));
+
+  // Recaudo diario
+  const dailyMap = {};
+  recaudo.forEach(r => {
+    if (!r._fecha) return;
+    const k = r._fecha.toISOString().split('T')[0];
+    if (!dailyMap[k]) dailyMap[k] = {monto:0, contratos:new Set()};
+    dailyMap[k].monto += r._monto;
+    dailyMap[k].contratos.add(r['NUMERO_CONTRATO']);
+  });
+  const dailyArr = Object.entries(dailyMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,v])=>({fecha:d,monto:v.monto,contratos:v.contratos.size}));
+
+  const totalRecaudado = recaudo.reduce((s,r)=>s+r._monto,0);
+  const contratosUnicos = new Set(recaudo.map(r=>r['NUMERO_CONTRATO'])).size;
+  const contratosPagados = new Set(recaudo.map(r=>String(r['NUMERO_CONTRATO'])));
+  const pendientes = carteraActiva.filter(r=>!contratosPagados.has(String(r['CONTRATO'])));
+
+  // Prioridades
+  const prioGroups = {P0:[],P1:[],P2:[],P3:[],P4:[],'Sin mora':[]};
+  carteraActiva.forEach(r => { const p=r._prioridad; (prioGroups[p]||prioGroups['Sin mora']).push(r); });
+
+  // Meta diaria por DIA_PAGO — los targets vienen de cartera inicial (se reemplazarán en processAll)
+  // Aquí se calcula desde carteraActiva como fallback; processAll lo sustituye con datos de PI
+  const diaPagoMap = {};
+  carteraActiva.forEach(r => {
+    const dia = parseNum(r['DIA_PAGO']); if (!dia) return;
+    if (!diaPagoMap[dia]) diaPagoMap[dia]={contratos:0,metaMonto:0};
+    diaPagoMap[dia].contratos++; diaPagoMap[dia].metaMonto+=getCuota(r);
+  });
+  const recaudoDiaMap = {};
+  recaudo.forEach(r => {
+    if (!r._fecha) return;
+    const dia=r._fecha.getDate();
+    if (!recaudoDiaMap[dia]) recaudoDiaMap[dia]={monto:0,contratos:new Set()};
+    recaudoDiaMap[dia].monto+=parseNum(r['VALOR_PAGADO']); recaudoDiaMap[dia].contratos.add(r['NUMERO_CONTRATO']);
+  });
+  // Guardar recaudoDiaMap para que processAll pueda recombinar con metas de PI
+  const metaDiaria = buildMetaDiaria(diaPagoMap, recaudoDiaMap);
+
+  // Medio de pago — monto y contratos
+  const medioMap = {};
+  recaudo.forEach(r => {
+    const m = String(r['MEDIO_PAGO_ASIGNADO']||'OTRO').trim();
+    if (!medioMap[m]) medioMap[m] = { monto:0, contratos:0 };
+    medioMap[m].monto     += r._monto;
+    medioMap[m].contratos += 1;
+  });
+
+  // Conteo de contratos por medio de pago en la cartera activa (campo de cartera)
+  const medioCarteraMap = {};
+  carteraActiva.forEach(r => {
+    const m = String(r['MEDIO_PAGO_ASIGNADO']||'OTRO').trim();
+    medioCarteraMap[m] = (medioCarteraMap[m] || 0) + 1;
+  });
+
+  return { carteraActiva, metaMonto, metaContratos, totalRecaudado, contratosUnicos,
+    contratosPagados, pendientes, prioGroups, dailyArr, metaDiaria, medioMap, medioCarteraMap, recaudo,
+    pctMonto: metaMonto>0?(totalRecaudado/metaMonto*100):0,
+    pctContratos: metaContratos>0?(contratosUnicos/metaContratos*100):0 };
+}
+
+// ══════════════════════════════════════════
+// MERGE TWO PROCESSED DATASETS
+// ══════════════════════════════════════════
+function mergeTwo(p1, p2) {
+  if (!p2) return p1;
+  const carteraActiva = [...p1.carteraActiva, ...p2.carteraActiva];
+  const recaudo       = [...p1.recaudo, ...p2.recaudo];
+  const metaMonto     = p1.metaMonto + p2.metaMonto;
+  const metaContratos = p1.metaContratos + p2.metaContratos;
+  const totalRecaudado = p1.totalRecaudado + p2.totalRecaudado;
+
+  // Merge contratos pagados
+  const contratosPagados = new Set([...p1.contratosPagados, ...p2.contratosPagados]);
+  const pendientes = carteraActiva.filter(r=>!contratosPagados.has(String(r['CONTRATO'])));
+
+  // Merge dailyArr
+  const dailyMap = {};
+  [...p1.dailyArr,...p2.dailyArr].forEach(d => {
+    if (!dailyMap[d.fecha]) dailyMap[d.fecha]={monto:0,contratos:0};
+    dailyMap[d.fecha].monto += d.monto; dailyMap[d.fecha].contratos += d.contratos;
+  });
+  const dailyArr = Object.entries(dailyMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([d,v])=>({fecha:d,...v}));
+
+  // Merge prioGroups
+  const prioGroups = {P0:[],P1:[],P2:[],P3:[],P4:[],'Sin mora':[]};
+  carteraActiva.forEach(r => { (prioGroups[r._prioridad]||prioGroups['Sin mora']).push(r); });
+
+  // Merge medioMap
+  const medioMap = {};
+  Object.entries(p1.medioMap).forEach(([k,v]) => { medioMap[k] = { monto: v.monto, contratos: v.contratos }; });
+  Object.entries(p2.medioMap).forEach(([k,v]) => {
+    if (!medioMap[k]) medioMap[k] = { monto:0, contratos:0 };
+    medioMap[k].monto     += v.monto;
+    medioMap[k].contratos += v.contratos;
+  });
+
+  // Merge metaDiaria
+  const mdMap = {};
+  [...p1.metaDiaria,...p2.metaDiaria].forEach(d => {
+    if (!mdMap[d.dia]) mdMap[d.dia]={dia:d.dia,metaContratos:0,metaMonto:0,recaudadoMonto:0,recaudadoContratos:0};
+    mdMap[d.dia].metaContratos += d.metaContratos; mdMap[d.dia].metaMonto += d.metaMonto;
+    mdMap[d.dia].recaudadoMonto += d.recaudadoMonto; mdMap[d.dia].recaudadoContratos += d.recaudadoContratos;
+  });
+  const metaDiaria = Object.values(mdMap).sort((a,b)=>a.dia-b.dia).map(d=>({
+    ...d,
+    pctMonto: d.metaMonto>0 ? d.recaudadoMonto/d.metaMonto*100 : null,
+    pctContratos: d.metaContratos>0 ? d.recaudadoContratos/d.metaContratos*100 : null
+  }));
+
+  // Merge medioCarteraMap
+  const medioCarteraMap = {...p1.medioCarteraMap};
+  Object.entries(p2.medioCarteraMap||{}).forEach(([k,v]) => {
+    medioCarteraMap[k] = (medioCarteraMap[k] || 0) + v;
+  });
+
+  const contratosUnicos = new Set(recaudo.map(r=>String(r['NUMERO_CONTRATO']))).size;
+  return { carteraActiva, recaudo, metaMonto, metaContratos, totalRecaudado,
+    contratosUnicos, contratosPagados, pendientes, prioGroups, dailyArr,
+    metaDiaria, medioMap, medioCarteraMap,
+    pctMonto: metaMonto>0?(totalRecaudado/metaMonto*100):0,
+    pctContratos: metaContratos>0?(contratosUnicos/metaContratos*100):0 };
+}
+
+function processAll() {
+  if (!RAW.cartera1.length || !RAW.recaudo1.length) return;
+
+  // Cartera DIARIA + recaudo → motor dinámico (mora, saldos, recaudo)
+  PROCESSED.e1 = processOne(RAW.cartera1, RAW.recaudo1);
+  PROCESSED.e2 = (RAW.cartera2.length > 0 && RAW.recaudo2.length > 0)
+    ? processOne(RAW.cartera2, RAW.recaudo2) : null;
+  PROCESSED.ambas = mergeTwo(PROCESSED.e1, PROCESSED.e2);
+
+  // Cartera INICIAL → fuente exclusiva de metas
+  // SOLO se actualiza si existe cartinicial — sin fallback a cartera diaria
+  if (RAW.cartinicial1.length > 0) {
+    PROCESSED_INI.e1 = processInicial(RAW.cartinicial1);
+  } else if (!PROCESSED_INI.e1) {
+    // Primera vez sin cartinicial: usar cartera diaria pero marcar como provisional
+    PROCESSED_INI.e1 = processInicial(RAW.cartera1);
+    PROCESSED_INI.e1._esFallback = true;
+  }
+  // VU
+  if (RAW.cartinicial2.length > 0) {
+    PROCESSED_INI.e2 = processInicial(RAW.cartinicial2);
+  } else if (RAW.cartera2.length > 0 && !PROCESSED_INI.e2) {
+    PROCESSED_INI.e2 = processInicial(RAW.cartera2);
+    PROCESSED_INI.e2._esFallback = true;
+  }
+  PROCESSED_INI.ambas = PROCESSED_INI.e2
+    ? mergeInicial(PROCESSED_INI.e1, PROCESSED_INI.e2)
+    : PROCESSED_INI.e1;
+
+  // ── Reconstruir metaDiaria en PROCESSED usando targets de PI + recaudo real ──
+  // Esto garantiza que los targets del bloque "Meta por Día" vengan de cartera inicial
+  ['e1','e2','ambas'].forEach(key => {
+    const pd = PROCESSED[key];
+    const pi = PROCESSED_INI[key];
+    if (!pd || !pi) return;
+
+    // Construir diaPagoMap desde cartera INICIAL
+    const diaPagoMap = {};
+    pi.base.forEach(r => {
+      const dia = parseNum(r['DIA_PAGO']); if (!dia) return;
+      if (!diaPagoMap[dia]) diaPagoMap[dia] = {contratos:0, metaMonto:0};
+      diaPagoMap[dia].contratos++;
+      diaPagoMap[dia].metaMonto += getCuota(r);
+    });
+
+    // Reconstruir recaudoDiaMap desde recaudo real (no cambia)
+    const recaudoDiaMap = {};
+    pd.recaudo.forEach(r => {
+      if (!r._fecha) return;
+      const dia = r._fecha.getDate();
+      if (!recaudoDiaMap[dia]) recaudoDiaMap[dia] = {monto:0, contratos:new Set()};
+      recaudoDiaMap[dia].monto += parseNum(r['VALOR_PAGADO']);
+      recaudoDiaMap[dia].contratos.add(r['NUMERO_CONTRATO']);
+    });
+
+    // Sobrescribir metaDiaria con targets correctos de PI
+    pd.metaDiaria = buildMetaDiaria(diaPagoMap, recaudoDiaMap);
+
+    // También actualizar metaMonto y metaContratos en PROCESSED para consistencia
+    pd.metaMonto     = pi.metaMonto;
+    pd.metaContratos = pi.metaContratos;
+    pd.pctMonto      = pi.metaMonto     > 0 ? (pd.totalRecaudado  / pi.metaMonto     * 100) : 0;
+    pd.pctContratos  = pi.metaContratos > 0 ? (pd.contratosUnicos / pi.metaContratos * 100) : 0;
+  });
+}
+
+// ══════════════════════════════════════════
+// EMPRESA TAB SWITCH
+// ══════════════════════════════════════════
+function setEmp(sec, val) {
+  if (val==='e2' && !PROCESSED.e2) return;
+
+  // Actualizar empresa global
+  GLOBAL_EMP = val;
+
+  // Sincronizar visualmente TODAS las pestañas de empresa en todos los bloques
+  const SECS = ['resumen','metas','cartera','mora','recaudo','metadia','criticos','sinpago'];
+  SECS.forEach(s => {
+    const tabs = document.querySelectorAll(`#emp-tabs-${s} .emp-tab`);
+    tabs.forEach(t => t.classList.remove('active'));
+    const activeTab = document.querySelector(`#emp-tabs-${s} .emp-tab[data-val="${val}"]`);
+    if (activeTab) activeTab.classList.add('active');
+  });
+
+  // Mostrar/ocultar filtros VU
+  ['filtros-vu-mora','filtros-vu-metas','filtros-vu-cartera'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = (val === 'e2') ? 'flex' : 'none';
+  });
+
+  // Detectar sección activa — puede ser section o section-inner
+  const activeEl = document.querySelector('.section.active, .section-inner.active');
+  const activeSec = activeEl ? activeEl.id.replace('section-','') : 'metas';
+
+  if (activeSec === 'gestion') {
+    renderSection(GESTION_ACTIVE);
+  } else {
+    renderSection(activeSec);
+  }
+}
+
+// getP — datos dinámicos (cartera diaria + recaudo)
+function getP(sec) {
+  const key = EMP_STATE[sec];
+  return PROCESSED[key] || PROCESSED.ambas;
+}
+// getPI — datos de cartera inicial (metas fijas)
+function getPI(sec) {
+  const key = EMP_STATE[sec];
+  return PROCESSED_INI[key] || PROCESSED_INI.ambas;
+}
+// getVUFilter — filtros VU activos para una sección
+function getVUFilter(sec) {
+  return VU_FILTERS[sec] || { inhumado:'', estado:'' };
+}
+// applyVUFilters — aplica filtros CON_INHUMADO y ESTADO_CONTRATO sobre un array
+function applyVUFilters(rows, sec) {
+  const f = getVUFilter(sec);
+  let r = rows;
+  if (f.inhumado) r = r.filter(x => String(x['CON_INHUMADO']||'').trim().toUpperCase() === f.inhumado);
+  if (f.estado)   r = r.filter(x => String(x['ESTADO_CONTRATO']||'').trim() === f.estado);
+  return r;
+}
+
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// NAV — 3 tabs principales + sub-tabs Gestión
+// ══════════════════════════════════════════
+
+// Sección activa dentro del bloque Gestión
+let GESTION_ACTIVE = 'mora';
+
+function renderSection(sec) {
+  if      (sec==='metas')    renderMetas();
+  else if (sec==='resumen')  renderResumen();
+  else if (sec==='cartera')  renderCartera();
+  else if (sec==='mora')     renderMora();
+  else if (sec==='recaudo')  renderRecaudoSection();
+  else if (sec==='metadia')  renderMetaDia();
+  else if (sec==='criticos') renderCriticos();
+  else if (sec==='sinpago')  renderSinPago();
+}
+
+// ── switchTopTab: maneja las 3 pestañas fijas del topbar ──
+function switchTopTab(tab) {
+  // Actualizar topbar tabs
+  document.querySelectorAll('.topbar-tab').forEach(t => t.classList.remove('active'));
+  const clicked = document.querySelector(`.topbar-tab[data-toptab="${tab}"]`);
+  if (clicked) clicked.classList.add('active');
+
+  if (tab === 'gestion') {
+    // Mostrar sección gestion con su sub-tab activo
+    showMainSection('gestion');
+    switchGestion(GESTION_ACTIVE, true);
+  } else {
+    showMainSection(tab);
+    renderSection(tab);
+  }
+}
+
+// ── switchTab: alias para compatibilidad (gestion sub-tabs llaman setEmp indirectamente) ──
+function switchTab(tab) { switchTopTab(tab); }
+
+function showMainSection(sec) {
+  // Ocultar todas las secciones principales (section + section-inner de nivel raíz)
+  ['metas','resumen','gestion'].forEach(id => {
+    const el = document.getElementById('section-' + id);
+    if (el) { el.style.display = 'none'; el.classList.remove('active'); }
+  });
+  const target = document.getElementById('section-' + sec);
+  if (target) { target.style.display = 'block'; target.classList.add('active'); }
+}
+
+function switchGestion(sec, skipMainSwitch) {
+  GESTION_ACTIVE = sec;
+
+  if (!skipMainSwitch) {
+    showMainSection('gestion');
+    document.querySelectorAll('.topbar-tab').forEach(t => t.classList.remove('active'));
+    const gt = document.querySelector('.topbar-tab[data-toptab="gestion"]');
+    if (gt) gt.classList.add('active');
+  }
+
+  // Activar sub-tab
+  document.querySelectorAll('.gestion-tab').forEach(t => t.classList.remove('active'));
+  const activeTab = document.querySelector(`.gestion-tab[data-sec="${sec}"]`);
+  if (activeTab) activeTab.classList.add('active');
+
+  // Mostrar sub-sección correcta dentro de .gestion-body
+  document.querySelectorAll('.gestion-body .section-inner').forEach(s => {
+    s.style.display = 'none';
+    s.classList.remove('active');
+  });
+  const inner = document.getElementById('section-' + sec);
+  if (inner) { inner.style.display = 'block'; inner.classList.add('active'); }
+
+  renderSection(sec);
+}
+
+// ══════════════════════════════════════════
+// RENDER ALL
+// ══════════════════════════════════════════
+function renderAll() {
+  // Mostrar Metas por defecto
+  showMainSection('metas');
+  document.querySelectorAll('.topbar-tab').forEach(t => t.classList.remove('active'));
+  const mt = document.querySelector('.topbar-tab[data-toptab="metas"]');
+  if (mt) mt.classList.add('active');
+
+  renderMetas();
+  renderResumen(); // pre-renderizar Resumen en segundo plano
+  // Gestión: lazy — se renderiza al abrir
+}
+
+// ══════════════════════════════════════════
+// PROCESO CARTERA INICIAL (METAS FIJAS)
+// ══════════════════════════════════════════
+function processInicial(carteraRaw) {
+  const EXCLUIR_MORA  = ['PAGADO','ANULADO'];
+  const INVALIDO_MORA = ['','NAN','UNDEFINED','NULL'];
+  const base = carteraRaw.filter(r => {
+    const mora   = String(r['NIVEL_MORA']  || '').trim().toUpperCase();
+    const estado = String(r['ESTADO_CONTRATO'] || '').trim();
+    const saldo  = getSaldo(r);
+    return !EXCLUIR_MORA.includes(mora) && !INVALIDO_MORA.includes(mora) &&
+           estado !== 'INACTIVO' && saldo > 0;
+  });
+  const metaMonto     = base.reduce((s,r) => s + getCuota(r), 0);
+  const metaContratos = base.length;
+  const cuotaPromedio = metaContratos > 0 ? metaMonto / metaContratos : 0;
+  const cantCuotasProm = metaContratos > 0
+    ? base.reduce((s,r) => s + parseNum(r['CANTIDAD_CUOTAS']), 0) / metaContratos : 0;
+  const saldoTotal    = base.reduce((s,r) => s + getSaldo(r), 0);
+
+  // Distribución por tipo contrato
+  const tipoMap = {};
+  base.forEach(r => {
+    const t = String(r['TIPO_CONTRATO']||'Sin tipo').trim();
+    if (!tipoMap[t]) tipoMap[t] = { contratos:0, monto:0 };
+    tipoMap[t].contratos++; tipoMap[t].monto += getCuota(r);
+  });
+
+  // Distribución por DIA_PAGO
+  const diaMap = {};
+  base.forEach(r => {
+    const d = parseNum(r['DIA_PAGO']); if (!d) return;
+    if (!diaMap[d]) diaMap[d] = { contratos:0, monto:0 };
+    diaMap[d].contratos++; diaMap[d].monto += getCuota(r);
+  });
+
+  // Distribución por medio de pago en cartera inicial
+  const medioCarteraMap = {};
+  base.forEach(r => {
+    const m = String(r['MEDIO_PAGO_ASIGNADO']||'OTRO').trim();
+    medioCarteraMap[m] = (medioCarteraMap[m] || 0) + 1;
+  });
+
+  return { base, metaMonto, metaContratos, cuotaPromedio, cantCuotasProm, saldoTotal, tipoMap, diaMap, medioCarteraMap };
+}
+
+function mergeInicial(p1, p2) {
+  if (!p2) return p1;
+  const base = [...p1.base, ...p2.base];
+  const metaMonto     = p1.metaMonto + p2.metaMonto;
+  const metaContratos = p1.metaContratos + p2.metaContratos;
+  const cuotaPromedio = metaContratos > 0 ? metaMonto / metaContratos : 0;
+  const cantCuotasProm = metaContratos > 0
+    ? base.reduce((s,r) => s + parseNum(r['CANTIDAD_CUOTAS']), 0) / metaContratos : 0;
+  const saldoTotal = p1.saldoTotal + p2.saldoTotal;
+  const tipoMap = {...p1.tipoMap};
+  Object.entries(p2.tipoMap).forEach(([k,v]) => {
+    if (!tipoMap[k]) tipoMap[k] = {contratos:0,monto:0};
+    tipoMap[k].contratos += v.contratos; tipoMap[k].monto += v.monto;
+  });
+  const diaMap = {...p1.diaMap};
+  Object.entries(p2.diaMap).forEach(([k,v]) => {
+    if (!diaMap[k]) diaMap[k] = {contratos:0,monto:0};
+    diaMap[k].contratos += v.contratos; diaMap[k].monto += v.monto;
+  });
+  const medioCarteraMap = {...p1.medioCarteraMap};
+  Object.entries(p2.medioCarteraMap||{}).forEach(([k,v]) => {
+    medioCarteraMap[k] = (medioCarteraMap[k] || 0) + v;
+  });
+  return { base, metaMonto, metaContratos, cuotaPromedio, cantCuotasProm, saldoTotal, tipoMap, diaMap, medioCarteraMap };
+}
+
+// ══════════════════════════════════════════
+// BLOQUE METAS DEL MES
+// ══════════════════════════════════════════
+function renderMetas() {
+  const inhumado = document.getElementById('filter-metas-inhumado')?.value || '';
+  const estado   = document.getElementById('filter-metas-estado')?.value   || '';
+
+  // ── ÚNICA fuente: PROCESSED_INI (cartera inicial) ──
+  const PI = getPI('metas');
+  if (!PI || !PI.base || PI.base.length === 0) {
+    document.getElementById('kpis-metas').innerHTML =
+      `<div class="kpi-card" style="grid-column:span 5"><div class="kpi-label">Sin datos</div>
+       <div class="kpi-value" style="font-size:15px;color:var(--text2)">Carga la Cartera Inicial o la Cartera Diaria para ver las metas</div></div>`;
+    return;
+  }
+
+  // Filtros VU aplicados sobre PI.base
+  let base = PI.base;
+  if (inhumado) base = base.filter(r => String(r['CON_INHUMADO']||'').trim().toUpperCase() === inhumado);
+  if (estado)   base = base.filter(r => String(r['ESTADO_CONTRATO']||'').trim() === estado);
+
+  // Usar valores pre-calculados de PI cuando no hay filtros VU (más eficiente y consistente)
+  const hayFiltroVU    = !!(inhumado || estado);
+  const metaMonto      = hayFiltroVU ? base.reduce((s,r) => s + (getCuota(r)), 0) : PI.metaMonto;
+  const metaContratos  = hayFiltroVU ? base.length : PI.metaContratos;
+  const cuotaProm      = metaContratos > 0 ? metaMonto / metaContratos : 0;
+  const cantCuotasProm = hayFiltroVU
+    ? (metaContratos > 0 ? base.reduce((s,r) => s + (parseFloat(r['CANTIDAD_CUOTAS']) || 0), 0) / metaContratos : 0)
+    : PI.cantCuotasProm;
+  const saldoTotal     = hayFiltroVU ? base.reduce((s,r) => s + (getSaldo(r)), 0) : PI.saldoTotal;
+
+  const key = EMP_STATE.metas;
+  const PI_key = PROCESSED_INI[key === 'ambas' ? 'ambas' : key];
+  const esFallback = PI_key && PI_key._esFallback;
+  const fuenteLabel = esFallback
+    ? '⚠️ Usando Cartera Diaria (sin Cartera Inicial cargada)'
+    : '📌 Cartera Inicial';
+
+  document.getElementById('kpis-metas').innerHTML = `
+    <div class="kpi-card dark"><div class="kpi-label">Meta Contratos Mes</div><div class="kpi-value">${metaContratos.toLocaleString('es-CL')}</div><div class="kpi-sub">${fuenteLabel}</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Meta Monto Mes</div><div class="kpi-value" style="color:var(--green-dark)">${fmtMoney(metaMonto)}</div><div class="kpi-sub">Suma VALOR_CUOTA</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Valor Cuota Promedio</div><div class="kpi-value" style="color:var(--green-mid)">${fmtMoney(cuotaProm)}</div><div class="kpi-sub">por contrato</div></div>
+    <div class="kpi-card lite"><div class="kpi-label">Cuotas Promedio</div><div class="kpi-value" style="color:var(--green-dark)">${cantCuotasProm.toFixed(1)}</div><div class="kpi-sub">cantidad promedio por contrato</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Saldo Total Cartera</div><div class="kpi-value">${fmtMoney(saldoTotal)}</div><div class="kpi-sub">SALDO_CONTRATO acumulado</div></div>
+  `;
+
+  // Gráfico tipo contrato — 5 categorías fijas
+  const CATEGORIAS = ['LIBRE', 'PERSONAL', 'FAMILIAR', 'ADULTO MAYOR', 'SIEMPRE JUNTOS'];
+  const tipoMap = {};
+  CATEGORIAS.forEach(c => { tipoMap[c] = { contratos:0, monto:0 }; });
+
+  base.forEach(r => {
+    const t = String(r['TIPO_CONTRATO']||'').trim().toUpperCase();
+    // Detectar a qué categoría pertenece buscando la palabra clave en el valor
+    const cat = CATEGORIAS.find(c => t.includes(c));
+    if (cat) {
+      tipoMap[cat].contratos++;
+      tipoMap[cat].monto += getCuota(r);
+    }
+  });
+
+  // Solo mostrar categorías con contratos
+  const tipoEntries = CATEGORIAS
+    .filter(c => tipoMap[c].contratos > 0)
+    .map(c => [c, tipoMap[c]]);
+
+  const GREENS = ['rgba(26,92,58,.85)','rgba(58,155,99,.78)','rgba(106,191,138,.72)','rgba(39,107,71,.8)','rgba(182,223,200,.85)'];
+  destroyChart('chart-metas-tipo');
+  const totalContrTipo = tipoEntries.reduce((s,[,v]) => s + v.contratos, 0);
+  CHARTS['chart-metas-tipo'] = new Chart(document.getElementById('chart-metas-tipo'), {
+    type:'doughnut',
+    data:{ labels: tipoEntries.map(([k,v]) => `${k} (${totalContrTipo>0?(v.contratos/totalContrTipo*100).toFixed(1):'0'}%)`), datasets:[{ data: tipoEntries.map(([,v])=>v.contratos), backgroundColor: GREENS.slice(0,tipoEntries.length), borderWidth:0 }] },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#5a7a65', font:{size:11} } },
+        tooltip:{ callbacks:{ label: ctx => {
+          const v = ctx.parsed;
+          const pct = totalContrTipo > 0 ? (v/totalContrTipo*100).toFixed(1) : '0';
+          return ` ${v} contratos (${pct}%)`;
+        }}}
+      }
+    }
+  });
+
+
+  // Tabla día de pago — ordenada desde el día actual
+  const hoyDia = new Date().getDate();
+  const diaMap2 = {};
+  base.forEach(r => {
+    const d = parseNum(r['DIA_PAGO']); if (!d) return;
+    if (!diaMap2[d]) diaMap2[d] = { contratos:0, monto:0 };
+    diaMap2[d].contratos++;
+    diaMap2[d].monto += getCuota(r);
+  });
+
+  // Todos los días del mes con datos, ordenados: hoy primero, luego los siguientes, luego los anteriores
+  const diasConDatos = Array.from({length:31},(_,i)=>i+1)
+    .filter(d => diaMap2[d])
+    .map(d => ({ dia:d, ...diaMap2[d] }));
+
+  // Rotar para que el día actual (o el más cercano siguiente) quede primero
+  const idxHoy = diasConDatos.findIndex(d => d.dia >= hoyDia);
+  const diaArrOrdenado = idxHoy >= 0
+    ? [...diasConDatos.slice(idxHoy), ...diasConDatos.slice(0, idxHoy)]
+    : diasConDatos;
+
+  const totDiaContr = diasConDatos.reduce((s,d) => s + d.contratos, 0);
+  const totDiaMonto = diasConDatos.reduce((s,d) => s + d.monto, 0);
+
+  document.getElementById('tabla-metas-dia').innerHTML = `<table>
+    <thead><tr>
+      <th style="text-align:center">Día</th>
+      <th style="text-align:right">Contratos</th>
+      <th style="text-align:right">Monto a Cobrar</th>
+    </tr></thead>
+    <tbody>
+      ${diaArrOrdenado.map(d => {
+        const esHoy = d.dia === hoyDia;
+        return `<tr style="${esHoy ? 'background:rgba(39,107,71,0.07);border-left:3px solid var(--green-dark)' : ''}">
+          <td style="text-align:center;font-weight:${esHoy?'800':'600'};color:${esHoy?'var(--green-darkest)':'inherit'}">${d.dia}${esHoy?' ★':''}</td>
+          <td style="text-align:right">${d.contratos}</td>
+          <td style="text-align:right;color:var(--green-dark);font-weight:600">${fmtMoney(d.monto)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+
+  // Actualizar footer fijo de totales
+  document.getElementById('total-dia-contratos').textContent = totDiaContr + ' contratos';
+  document.getElementById('total-dia-monto').textContent     = fmtMoney(totDiaMonto);
+
+  // ── Tabla de mora en matriz — Días Mora (filas) × Días No Pago (columnas) ──
+  document.getElementById('count-metas').textContent = metaContratos + ' contratos';
+
+  // Definición de rangos (mora y no pago usan la misma distribución)
+  const RANGOS_M = [
+    { label: '0 – 30',   min: 0,   max: 30  },
+    { label: '31 – 60',  min: 31,  max: 60  },
+    { label: '61 – 90',  min: 61,  max: 90  },
+    { label: '91 – 120', min: 91,  max: 120 },
+    { label: '> 120',    min: 121, max: Infinity },
+  ];
+
+  // Función de semáforo exacta
+  function semaColor(diasM, diasNP) {
+    if (diasNP >= 120 && diasM >= 120) return 'rojo';
+    if ((diasNP >= 90 && diasNP <= 119 && diasM > 120) || (diasM >= 90 && diasM <= 119 && diasNP > 120)) return 'naranja';
+    if ((diasNP >= 60 && diasNP <= 89  && diasM > 60)  || (diasM >= 60 && diasM <= 89  && diasNP > 60))  return 'amarillo';
+    return 'verde';
+  }
+
+  // Color de celda basado en índices de rango (0=1-30, 1=31-60, 2=61-90, 3=91-120, 4=>120)
+  // Lógica exacta por combinación de rangos:
+  function cellColor(fi, ci) {
+    // fi = índice fila (mora), ci = índice columna (no pago)
+    // Rojo: ambos en rango >120 (índice 4)
+    if (fi === 4 && ci === 4) return 'rojo';
+    // Naranja: uno en 91-120 (idx 3) y otro en >120 (idx 4), o ambos en 91-120 (idx 3)
+    if ((fi === 3 && ci === 4) || (fi === 4 && ci === 3)) return 'naranja';
+    if (fi === 3 && ci === 3) return 'naranja';
+    // Amarillo: uno en 61-90 (idx 2) con el otro >60 (idx 2,3,4), o vice versa
+    if (fi === 2 && ci >= 2) return 'amarillo';
+    if (ci === 2 && fi >= 2) return 'amarillo';
+    // Verde: todo lo demás
+    return 'verde';
+  }
+
+  // Construir matrices (contratos y saldo) agrupadas por rangos
+  const matContr = RANGOS_M.map(() => RANGOS_M.map(() => 0));
+  const matSaldo = RANGOS_M.map(() => RANGOS_M.map(() => 0));
+
+  base.forEach(r => {
+    const diasM  = parseFloat(r['DIAS_DE_MORA'])    || 0;
+    const diasNP = parseFloat(r['DIAS_DE_NO_PAGO']) || 0;
+    const saldo  = getSaldo(r);
+    // Valores negativos se tratan como 0 → caen en el rango 0–30
+    const diasMc  = Math.max(diasM,  0);
+    const diasNPc = Math.max(diasNP, 0);
+    const fi = RANGOS_M.findIndex(rg => diasMc  >= rg.min && diasMc  <= rg.max);
+    const ci = RANGOS_M.findIndex(rg => diasNPc >= rg.min && diasNPc <= rg.max);
+    if (fi >= 0 && ci >= 0) {
+      matContr[fi][ci] += 1;
+      matSaldo[fi][ci] += saldo;
+    }
+  });
+
+  // Función para renderizar una matriz
+  function buildMatrix(mat, fmt) {
+    const colTotals = RANGOS_M.map((_, ci) => mat.reduce((s, row) => s + row[ci], 0));
+    const rowTotals = mat.map(row => row.reduce((a, b) => a + b, 0));
+    const grandTotal = rowTotals.reduce((a, b) => a + b, 0);
+
+    const colHeaders = RANGOS_M.map(r => `<th>${r.label}</th>`).join('') + '<th class="row-header" style="background:var(--green-dark)">Total</th>';
+    const rows = mat.map((row, fi) => {
+      const cells = row.map((val, ci) => {
+        const cls  = 'cell-' + cellColor(fi, ci);
+        const disp = val === 0 ? '<span class="cell-zero">—</span>' : fmt(val);
+        return `<td class="${cls}">${disp}</td>`;
+      }).join('');
+      const tot = rowTotals[fi];
+      return `<tr>
+        <td class="row-label">${RANGOS_M[fi].label}</td>
+        ${cells}
+        <td class="total-col">${tot === 0 ? '<span class="cell-zero">—</span>' : fmt(tot)}</td>
+      </tr>`;
+    }).join('');
+    const totRow = colTotals.map(v => `<td class="total-col">${v === 0 ? '<span class="cell-zero">—</span>' : fmt(v)}</td>`).join('');
+
+    return `<table class="mora-matrix">
+      <thead><tr>
+        <th class="row-header">Mora \\ No Pago</th>
+        ${colHeaders}
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr class="total-row">
+          <td class="row-label">Total</td>
+          ${totRow}
+          <td class="total-col" style="font-weight:800">${fmt(grandTotal)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+
+  document.getElementById('tabla-mora-matriz-contratos').innerHTML =
+    buildMatrix(matContr, v => v.toLocaleString('es-CL'));
+  document.getElementById('tabla-mora-matriz-saldo').innerHTML =
+    buildMatrix(matSaldo, v => '$' + Math.round(v/1000).toLocaleString('es-CL') + 'k');
+}
+
+// ══════════════════════════════════════════
+// BLOQUE CARTERA — DISTRIBUCIÓN
+// ══════════════════════════════════════════
+function renderCartera() {
+  const inhumado = document.getElementById('filter-cartera-inhumado')?.value || '';
+  const estado   = document.getElementById('filter-cartera-estado')?.value   || '';
+  if (VU_FILTERS.cartera) { VU_FILTERS.cartera.inhumado = inhumado; VU_FILTERS.cartera.estado = estado; }
+
+  const P = getP('cartera');
+  if (!P || !P.carteraActiva) return;
+  let ca = P.carteraActiva;
+  if (inhumado) ca = ca.filter(r => String(r['CON_INHUMADO']||'').trim().toUpperCase() === inhumado);
+  if (estado)   ca = ca.filter(r => String(r['ESTADO_CONTRATO']||'').trim() === estado);
+
+  // ── Segmentar: con pago vs sin pago (mora >1d) ──
+  const conPago   = ca.filter(r => parseNum(r['CANT_CUOTAS_PAGADAS']) > 0);
+  const sinPago   = ca.filter(r => parseNum(r['CANT_CUOTAS_PAGADAS']) === 0 && parseNum(r['DIAS_DE_MORA']) > 1);
+  const total     = ca.length;
+  const pctCP     = total > 0 ? (conPago.length / total * 100) : 0;
+  const pctSP     = total > 0 ? (sinPago.length / total * 100) : 0;
+
+  // ── KPIs ──
+  const saldoTotal = ca.reduce((s,r) => s + getSaldo(r), 0);
+
+  document.getElementById('kpis-cartera').innerHTML = `
+    <div class="kpi-card dark"><div class="kpi-label">Total Contratos Activos</div><div class="kpi-value">${total.toLocaleString('es-CL')}</div><div class="kpi-sub">Cartera Diaria</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Saldo Total Cartera</div><div class="kpi-value" style="color:var(--green-dark)">${fmtMoney(saldoTotal)}</div><div class="kpi-sub">SALDO_CONTRATO acumulado</div></div>
+    <div class="kpi-card green"><div class="kpi-label">✅ Con Pago</div><div class="kpi-value" style="color:var(--green-mid)">${conPago.length.toLocaleString('es-CL')}</div><div class="kpi-sub">${pctCP.toFixed(1)}% del total</div></div>
+    <div class="kpi-card" style="border-left:4px solid var(--p1)"><div class="kpi-label">❌ Sin Pago (mora >1d)</div><div class="kpi-value" style="color:var(--p1)">${sinPago.length.toLocaleString('es-CL')}</div><div class="kpi-sub">${pctSP.toFixed(1)}% del total</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Saldo Vencido Sin Pago</div><div class="kpi-value" style="color:var(--p2)">${fmtMoney(sinPago.reduce((s,r)=>s+getSaldoVencido(r),0))}</div><div class="kpi-sub">acumulado</div></div>
+  `;
+
+  // ── Gráfica horizontal: Con Pago vs Sin Pago ──
+  destroyChart('chart-cartera-avance');
+  CHARTS['chart-cartera-avance'] = new Chart(document.getElementById('chart-cartera-avance'), {
+    type: 'bar',
+    data: {
+      labels: ['Contratos'],
+      datasets: [
+        { label: `Con Pago (${conPago.length})`,  data: [conPago.length],  backgroundColor: 'rgba(39,107,71,0.82)',  borderRadius: 6 },
+        { label: `Sin Pago (${sinPago.length})`,   data: [sinPago.length],  backgroundColor: 'rgba(192,57,43,0.82)',  borderRadius: 6 },
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true,
+      plugins: {
+        legend: { position:'right', labels:{ color:'#374151', font:{size:13,weight:'600'} } },
+        datalabels: {
+          display: true, anchor:'center', align:'center',
+          color: '#fff', font: { size:13, weight:'800' },
+          formatter: v => v > 0 ? v : ''
+        }
+      },
+      scales: {
+        x: { stacked:false, ticks:{color:'#5a7a65',font:{size:11}}, grid:{color:'rgba(212,228,218,.4)'} },
+        y: { ticks:{display:false}, grid:{display:false} }
+      },
+      layout: { padding: { right: 10 } }
+    }
+  });
+
+  // ── Matriz sin pago por rango mora × no pago ──
+  const RANGOS_A = [
+    { label:'1–30',   min:1,   max:30  },
+    { label:'31–60',  min:31,  max:60  },
+    { label:'61–90',  min:61,  max:90  },
+    { label:'91–120', min:91,  max:120 },
+    { label:'>120',   min:121, max:Infinity },
+  ];
+  // Colores según la tabla especificada
+  // Mora ↓ \ NP →: 1-30=verde, 31-60=verde, 61-90: mora61-90=🟡, 91-120: mora91+=🟠, >120: mora>120=🔴
+  function cellColorAvance(fi, ci) {
+    if (fi === 4 && ci === 4) return 'rojo';
+    if ((fi >= 3 && ci >= 3) && !(fi === 4 && ci === 4)) {
+      if (fi === 3 && ci === 3) return 'naranja';
+      if (fi === 3 && ci === 4) return 'naranja';
+      if (fi === 4 && ci === 3) return 'naranja';
+    }
+    if (fi >= 2 && ci >= 2) return 'amarillo';
+    return 'verde';
+  }
+
+  const matC = RANGOS_A.map(()=>RANGOS_A.map(()=>0));
+  const matS = RANGOS_A.map(()=>RANGOS_A.map(()=>0));
+  sinPago.forEach(r => {
+    const m  = Math.max(parseNum(r['DIAS_DE_MORA']),    0);
+    const np = Math.max(parseNum(r['DIAS_DE_NO_PAGO']), 0);
+    const s  = getSaldo(r);
+    const fi = RANGOS_A.findIndex(rg => m  >= rg.min && m  <= rg.max);
+    const ci = RANGOS_A.findIndex(rg => np >= rg.min && np <= rg.max);
+    if (fi >= 0 && ci >= 0) { matC[fi][ci]++; matS[fi][ci] += s; }
+  });
+
+  document.getElementById('count-sinpago-avance').textContent = sinPago.length + ' contratos sin pago';
+
+  function buildAvanceMatrix(mat, fmtFn) {
+    const colH = '<th class="row-header">Mora \\ NP</th>' + RANGOS_A.map(r=>`<th>${r.label}</th>`).join('') + '<th class="row-header" style="background:var(--green-dark)">Total</th>';
+    const rowTotals = mat.map(row=>row.reduce((a,b)=>a+b,0));
+    const colTotals = RANGOS_A.map((_,ci)=>mat.reduce((s,row)=>s+row[ci],0));
+    const grand = rowTotals.reduce((a,b)=>a+b,0);
+    const rows = mat.map((row,fi)=>{
+      const cells = row.map((v,ci)=>{
+        const cls = 'cell-'+cellColorAvance(fi,ci);
+        return `<td class="${cls}">${v===0?'<span class="cell-zero">—</span>':fmtFn(v)}</td>`;
+      }).join('');
+      return `<tr><td class="row-label">${RANGOS_A[fi].label}</td>${cells}<td class="total-col">${rowTotals[fi]===0?'—':fmtFn(rowTotals[fi])}</td></tr>`;
+    }).join('');
+    const totRow = colTotals.map(v=>`<td class="total-col">${v===0?'—':fmtFn(v)}</td>`).join('');
+    return `<table class="mora-matrix"><thead><tr>${colH}</tr></thead><tbody>${rows}
+      <tr class="total-row"><td class="row-label">Total</td>${totRow}<td class="total-col" style="font-weight:800">${fmtFn(grand)}</td></tr>
+    </tbody></table>`;
+  }
+
+  document.getElementById('tabla-avance-matriz').innerHTML =
+    '<div style="margin-bottom:10px"><b style="font-size:11px;color:var(--green-darkest)">Contratos</b></div>' +
+    buildAvanceMatrix(matC, v => v.toLocaleString('es-CL')) +
+    '<div style="margin:14px 0 6px"><b style="font-size:11px;color:var(--green-darkest)">Saldo Contrato ($)</b></div>' +
+    buildAvanceMatrix(matS, v => { const a=Math.abs(v); return a>=1000000?'$'+(a/1000000).toFixed(1)+'M':'$'+Math.round(a/1000)+'k'; });
+
+  // ── Tabla detalle sin pago ──
+  const busq = (document.getElementById('search-avance')?.value||'').toLowerCase();
+  const detalle = sinPago
+    .filter(r => !busq ||
+      String(r['CLIENTE']||'').toLowerCase().includes(busq) ||
+      String(r['CONTRATO']||'').toLowerCase().includes(busq))
+    .sort((a,b) => parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']));
+
+  document.getElementById('tabla-avance-detalle').innerHTML = `
+    <table><thead><tr>
+      <th>Cliente</th><th>Teléfono</th><th>Email</th>
+      <th style="text-align:right">Contrato</th>
+      <th style="text-align:right">Valor Cuota</th>
+      <th style="text-align:right">Días Mora</th>
+      <th style="text-align:right">Días Sin Pago</th>
+    </tr></thead><tbody>
+    ${detalle.map(r => {
+      const diasM = parseNum(r['DIAS_DE_MORA']);
+      const color = diasM >= 120 ? 'var(--p1)' : diasM >= 90 ? 'var(--p2)' : diasM >= 60 ? 'var(--p3)' : 'var(--text)';
+      return `<tr>
+        <td>${r['CLIENTE']||'—'}</td>
+        <td>${r['TELEFONO']||r['TELEFONO_MOVIL']||'—'}</td>
+        <td style="font-size:11px">${String(r['EMAIL']||'—').split(';')[0].trim()}</td>
+        <td style="text-align:right;font-weight:600">${r['CONTRATO']||'—'}</td>
+        <td style="text-align:right;color:var(--green-dark)">${fmtMoney(getCuota(r))}</td>
+        <td style="text-align:right;font-weight:700;color:${color}">${diasM}</td>
+        <td style="text-align:right">${parseNum(r['DIAS_DE_NO_PAGO'])}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function exportarAvance() {
+  const P = getP('cartera');
+  if (!P) return;
+  const ca = P.carteraActiva;
+  const sinPago = ca.filter(r => parseNum(r['CANT_CUOTAS_PAGADAS']) === 0 && parseNum(r['DIAS_DE_MORA']) > 1)
+    .sort((a,b) => parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']));
+
+  const data = sinPago.map(r => ({
+    'NOMBRE_CLIENTE':  r['CLIENTE']        || '',
+    'TELEFONO':        r['TELEFONO']       || r['TELEFONO_MOVIL'] || '',
+    'EMAIL':           String(r['EMAIL']||'').split(';')[0].trim(),
+    'CONTRATO':        r['CONTRATO']       || '',
+    'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+    'DIAS_DE_MORA':    parseNum(r['DIAS_DE_MORA']),
+    'DIAS_DE_NO_PAGO': parseNum(r['DIAS_DE_NO_PAGO']),
+    'NIVEL_MORA':      r['NIVEL_MORA']     || '',
+    'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+  }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Sin Pago');
+  XLSX.writeFile(wb, 'avance_sin_pago.xlsx');
+}
+
+// ══════════════════════════════════════════
+// SEMÁFORO DE RIESGO — integrado en renderMora
+// ══════════════════════════════════════════
+function calcSemaforo(r) {
+  const diasM  = parseNum(r['DIAS_DE_MORA']);
+  const diasNP = parseNum(r['DIAS_DE_NO_PAGO']);
+  // 🔴 Rojo: DIAS_DE_NO_PAGO ≥120 Y DIAS_DE_MORA ≥120
+  if (diasNP >= 120 && diasM >= 120) return 'rojo';
+  // 🟠 Naranja: (90-119 NP y >120 M) OR (90-119 M y >120 NP)
+  if ((diasNP >= 90 && diasNP <= 119 && diasM > 120) ||
+      (diasM  >= 90 && diasM  <= 119 && diasNP > 120)) return 'naranja';
+  // 🟡 Amarillo: (60-89 NP y >60 M) OR (60-89 M y >60 NP)
+  if ((diasNP >= 60 && diasNP <= 89 && diasM > 60) ||
+      (diasM  >= 60 && diasM  <= 89 && diasNP > 60)) return 'amarillo';
+  // 🟢 Verde: NP <59 Y M <59
+  return 'verde';
+}
+
+const SEMAFORO_DEF = [
+  { key:'rojo',     label:'🔴 Rojo — Crítico',   desc:'≥120d mora y ≥120d sin pago',            color:'var(--p1)',  bg:'rgba(192,57,43,.08)'  },
+  { key:'naranja',  label:'🟠 Naranja — Alto',    desc:'90–119d mora cruzado con ≥120d sin pago', color:'var(--p2)',  bg:'rgba(212,105,30,.08)' },
+  { key:'amarillo', label:'🟡 Amarillo — Medio',  desc:'60–89d mora y >60d sin pago',             color:'var(--p3)',  bg:'rgba(200,154,0,.08)'  },
+  { key:'verde',    label:'🟢 Verde — Bajo',      desc:'<59 días de mora',                        color:'var(--p4)',  bg:'rgba(90,138,46,.08)'  },
+];
+// ══════════════════════════════════════════
+function renderResumen() {
+  const P  = getP('resumen');
+  const PI = getPI('resumen');
+
+  // ── Toda la información de metas viene EXCLUSIVAMENTE de la Cartera Inicial (PI) ──
+  // PI.base = cartera inicial filtrada; PI.metaMonto y PI.metaContratos = totales del mes
+  const baseInicial    = (PI && PI.base) ? PI.base : [];
+  const metaMonto      = (PI && PI.metaMonto    ) ? PI.metaMonto     : 0;
+  const metaContratos  = (PI && PI.metaContratos) ? PI.metaContratos : 0;
+
+  // ── % vs meta TOTAL — para los KPIs de tarjeta ──
+  const pctTotalContratos = metaContratos > 0 ? (P.contratosUnicos / metaContratos * 100) : 0;
+  const pctTotalMonto     = metaMonto     > 0 ? (P.totalRecaudado  / metaMonto     * 100) : 0;
+
+  // ── Meta a la fecha: DIA_PAGO <= día de hoy — desde Cartera Inicial ──
+  const diaHoy = new Date().getDate();
+  const carteraFecha       = baseInicial.filter(r => parseNum(r['DIA_PAGO']) <= diaHoy && parseNum(r['DIA_PAGO']) > 0);
+  const metaFechaContratos = carteraFecha.length;
+  const metaFechaMonto     = carteraFecha.reduce((s,r) => s + (getCuota(r)), 0);
+  const pctFechaContratos  = metaFechaContratos > 0 ? (P.contratosUnicos / metaFechaContratos * 100) : 0;
+  const pctFechaMonto      = metaFechaMonto     > 0 ? (P.totalRecaudado  / metaFechaMonto     * 100) : 0;
+
+  // ── Semáforo — basado en % a la fecha (barras) ──
+  const colorContratos = pctFechaContratos >= 95 ? '#16a34a' : pctFechaContratos >= 90 ? '#ca8a04' : '#dc2626';
+  const colorMonto     = pctFechaMonto     >= 97 ? '#16a34a' : pctFechaMonto     >= 94 ? '#ca8a04' : '#dc2626';
+
+  // ── KPIs primera fila — % vs meta TOTAL del mes ──
+  document.getElementById('kpis-resumen').innerHTML = `
+    <div class="kpi-card dark">
+      <div class="kpi-label">📌 Meta del Mes — Contratos</div>
+      <div class="kpi-value">${metaContratos.toLocaleString('es-CL')}</div>
+      <div class="kpi-sub">Cartera Inicial</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">✅ Contratos Cobrados en el Mes</div>
+      <div class="kpi-value" style="color:var(--green-mid)">${P.contratosUnicos.toLocaleString('es-CL')}</div>
+      <div class="kpi-sub">Recaudo acumulado del mes</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid ${pctTotalContratos>=95?'#16a34a':pctTotalContratos>=90?'#ca8a04':'#dc2626'}">
+      <div class="kpi-label">% Alcanzado vs Meta Total</div>
+      <div class="kpi-value" style="color:${pctTotalContratos>=95?'#16a34a':pctTotalContratos>=90?'#ca8a04':'#dc2626'}">${pctTotalContratos.toFixed(1)}%</div>
+      <div class="kpi-sub">${P.contratosUnicos} de ${metaContratos} contratos del mes</div>
+    </div>
+    <div class="kpi-card dark">
+      <div class="kpi-label">📌 Meta del Mes — Monto</div>
+      <div class="kpi-value">${fmtMoney(metaMonto)}</div>
+      <div class="kpi-sub">Cartera Inicial</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">💰 Monto Recaudado en el Mes</div>
+      <div class="kpi-value" style="color:var(--green-mid)">${fmtMoney(P.totalRecaudado)}</div>
+      <div class="kpi-sub">Faltante vs meta mes: ${fmtMoney(Math.max(metaMonto-P.totalRecaudado,0))}</div>
+    </div>
+    <div class="kpi-card" style="border-left:4px solid ${pctTotalMonto>=97?'#16a34a':pctTotalMonto>=94?'#ca8a04':'#dc2626'}">
+      <div class="kpi-label">% Alcanzado vs Meta Total</div>
+      <div class="kpi-value" style="color:${pctTotalMonto>=97?'#16a34a':pctTotalMonto>=94?'#ca8a04':'#dc2626'}">${pctTotalMonto.toFixed(1)}%</div>
+      <div class="kpi-sub">${pctTotalMonto>=97?'🟢 En meta':pctTotalMonto>=94?'🟡 Cerca':'🔴 Bajo meta'} · del total mensual</div>
+    </div>
+  `;
+
+  // ── Barras de avance — % vs meta A LA FECHA (DIA_PAGO <= hoy) ──
+  function mkProgBar(title, pct, rec, meta, colorHex, umbrales) {
+    return `<div class="progress-wrap" style="margin-bottom:14px">
+      <div class="progress-header">
+        <span class="progress-title">${title}</span>
+        <span class="progress-pct" style="color:${colorHex};font-weight:800">${pct.toFixed(1)}%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:${Math.min(pct,100)}%;background:${colorHex}"></div>
+      </div>
+      <div class="progress-details">
+        <div class="progress-detail">Alcanzado: <strong>${rec}</strong></div>
+        <div class="progress-detail">Meta al día ${diaHoy}: <strong>${meta}</strong></div>
+        <div class="progress-detail" style="color:${colorHex};font-size:11px">${umbrales}</div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('progress-resumen').innerHTML =
+    mkProgBar('Avance en Contratos a la Fecha', pctFechaContratos,
+      P.contratosUnicos + ' contratos', metaFechaContratos + ' contratos', colorContratos,
+      pctFechaContratos>=95?'🟢 ≥95%: En meta':pctFechaContratos>=90?'🟡 90–94%: Cerca de meta':'🔴 <90%: Bajo meta') +
+    mkProgBar('Avance en Monto a la Fecha', pctFechaMonto,
+      fmtMoney(P.totalRecaudado), fmtMoney(metaFechaMonto), colorMonto,
+      pctFechaMonto>=97?'🟢 ≥97%: En meta':pctFechaMonto>=94?'🟡 94–96.9%: Cerca de meta':'🔴 <94%: Bajo meta');
+
+  // ── Gráficas diarias — etiquetas solo día (número) ──
+  // Detectar empresa activa para colores
+  const esAmbas = GLOBAL_EMP === 'ambas';
+  const esPF    = GLOBAL_EMP === 'e1';
+  // PF: verde oscuro, VU: verde claro, Ambas: mezcla por día usando stacked si hay ambas
+  const colorDiario = esPF ? 'rgba(26,92,58,0.85)' : GLOBAL_EMP==='e2' ? 'rgba(106,191,138,0.82)' : 'rgba(39,107,71,0.78)';
+  const colorDiarioUlt = esPF ? 'rgba(14,65,38,1)' : GLOBAL_EMP==='e2' ? 'rgba(58,155,99,1)' : 'rgba(26,92,58,1)';
+
+  // Etiquetas: solo el número del día
+  const labels = P.dailyArr.map(d => {
+    const fecha = new Date(d.fecha + 'T12:00:00');
+    return String(fecha.getDate());
+  });
+  const lastIdx = P.dailyArr.length - 1;
+
+  destroyChart('chart-diario-monto');
+  CHARTS['chart-diario-monto'] = new Chart(document.getElementById('chart-diario-monto'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Recaudado ($)',
+        data: P.dailyArr.map(d => d.monto),
+        backgroundColor: P.dailyArr.map((_, i) => i === lastIdx ? colorDiarioUlt : colorDiario),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + fmtMoney(ctx.parsed.y) } },
+        datalabels: {
+          display: true,
+          anchor: 'end', align: 'end',
+          color: '#1a5c3a',
+          font: { size: 9, weight: '700' },
+          formatter: v => v >= 1000000 ? '$' + (v/1000000).toFixed(1) + 'M'
+                       : v >= 1000    ? '$' + Math.round(v/1000) + 'k'
+                       : '$' + v,
+          rotation: -45,
+          offset: 2
+        }
+      },
+      scales: chartScales('$'),
+      layout: { padding: { top: 28 } }
+    }
+  });
+
+  destroyChart('chart-diario-contratos');
+  CHARTS['chart-diario-contratos'] = new Chart(document.getElementById('chart-diario-contratos'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Contratos',
+        data: P.dailyArr.map(d => d.contratos),
+        backgroundColor: P.dailyArr.map((_, i) => i === lastIdx ? colorDiarioUlt : colorDiario),
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          display: true,
+          anchor: 'end', align: 'end',
+          color: '#1a5c3a',
+          font: { size: 10, weight: '700' },
+          formatter: v => v,
+          offset: 2
+        }
+      },
+      scales: chartScales('#'),
+      layout: { padding: { top: 24 } }
+    }
+  });
+
+  // ── Tablas delta mora: Cartera Inicial vs Cartera Diaria ──
+  const RANGOS_D = [
+    { label: '0 – 30',   min: 0,   max: 30       },
+    { label: '31 – 60',  min: 31,  max: 60       },
+    { label: '61 – 90',  min: 61,  max: 90       },
+    { label: '91 – 120', min: 91,  max: 120      },
+    { label: '> 120',    min: 121, max: Infinity },
+  ];
+
+  function cellColorD(fi, ci) {
+    if (fi === 4 && ci === 4) return 'rojo';
+    if ((fi === 3 && ci === 4) || (fi === 4 && ci === 3) || (fi === 3 && ci === 3)) return 'naranja';
+    if ((fi === 2 && ci >= 2) || (ci === 2 && fi >= 2)) return 'amarillo';
+    return 'verde';
+  }
+
+  function buildMoraMatrix(cartera) {
+    const matC = RANGOS_D.map(() => RANGOS_D.map(() => 0));
+    const matS = RANGOS_D.map(() => RANGOS_D.map(() => 0));
+    cartera.forEach(r => {
+      const diasM  = Math.max(parseFloat(r['DIAS_DE_MORA'])    || 0, 0);
+      const diasNP = Math.max(parseFloat(r['DIAS_DE_NO_PAGO']) || 0, 0);
+      const saldo  = getSaldo(r);
+      const fi = RANGOS_D.findIndex(rg => diasM  >= rg.min && diasM  <= rg.max);
+      const ci = RANGOS_D.findIndex(rg => diasNP >= rg.min && diasNP <= rg.max);
+      if (fi >= 0 && ci >= 0) { matC[fi][ci]++; matS[fi][ci] += saldo; }
+    });
+    return { matC, matS };
+  }
+
+  // Cartera inicial (PI) y diaria (P)
+  const PI_res = getPI('resumen');
+  const baseIni  = PI_res ? PI_res.base        : [];
+  const baseDia  = P.carteraActiva;
+  const { matC: matCIni, matS: matSIni } = buildMoraMatrix(baseIni);
+  const { matC: matCDia, matS: matSDia } = buildMoraMatrix(baseDia);
+
+  function buildDeltaTable(matIni, matDia, fmtFn) {
+    const colHeaders = '<th class="row-header" style="min-width:72px">Mora \\ NP</th>' +
+      RANGOS_D.map(r => `<th>${r.label}</th>`).join('') +
+      '<th class="row-header" style="background:var(--green-dark)">Total</th>';
+
+    const rows = RANGOS_D.map((_, fi) => {
+      let rowDelta = 0;
+      const cells = RANGOS_D.map((_, ci) => {
+        const delta = matDia[fi][ci] - matIni[fi][ci];
+        rowDelta += delta;
+        const cls  = 'cell-' + cellColorD(fi, ci);
+        const sign = delta > 0 ? '+' : '';
+        // Si sube (positivo) → alerta roja; si baja (negativo) → bueno verde; si 0 → neutro
+        const deltaColor = delta > 0 ? '#b91c1c' : delta < 0 ? '#15803d' : '#9ca3af';
+        const disp = delta === 0
+          ? '<span style="color:#d1d5db;font-size:10px">—</span>'
+          : `<span style="color:${deltaColor};font-weight:800">${sign}${fmtFn(delta)}</span>`;
+        return `<td class="${cls}">${disp}</td>`;
+      }).join('');
+      const rSign = rowDelta > 0 ? '+' : '';
+      const rColor = rowDelta > 0 ? '#b91c1c' : rowDelta < 0 ? '#15803d' : '#9ca3af';
+      const rDisp = rowDelta === 0 ? '<span style="color:#d1d5db">—</span>'
+        : `<span style="color:${rColor};font-weight:800">${rSign}${fmtFn(rowDelta)}</span>`;
+      return `<tr><td class="row-label">${RANGOS_D[fi].label}</td>${cells}<td class="total-col">${rDisp}</td></tr>`;
+    }).join('');
+
+    const totRow = RANGOS_D.map((_, ci) => {
+      const delta = RANGOS_D.reduce((s, __, fi) => s + matDia[fi][ci] - matIni[fi][ci], 0);
+      const sign = delta > 0 ? '+' : '';
+      const col  = delta > 0 ? '#b91c1c' : delta < 0 ? '#15803d' : '#9ca3af';
+      return `<td class="total-col"><span style="color:${col};font-weight:800">${delta===0?'—':sign+fmtFn(delta)}</span></td>`;
+    }).join('');
+    const grandDelta = RANGOS_D.reduce((s,_,fi) => s + RANGOS_D.reduce((ss,__,ci) => ss + matDia[fi][ci] - matIni[fi][ci], 0), 0);
+    const gSign = grandDelta > 0 ? '+' : '';
+    const gCol  = grandDelta > 0 ? '#b91c1c' : grandDelta < 0 ? '#15803d' : '#9ca3af';
+
+    return `<table class="mora-matrix">
+      <thead><tr>${colHeaders}</tr></thead>
+      <tbody>
+        ${rows}
+        <tr class="total-row">
+          <td class="row-label">Total</td>${totRow}
+          <td class="total-col" style="font-weight:800"><span style="color:${gCol}">${grandDelta===0?'—':gSign+fmtFn(grandDelta)}</span></td>
+        </tr>
+      </tbody>
+    </table>`;
+  }
+
+  document.getElementById('tabla-delta-contratos').innerHTML =
+    buildDeltaTable(matCIni, matCDia, v => Math.abs(v).toLocaleString('es-CL'));
+  document.getElementById('tabla-delta-saldo').innerHTML =
+    buildDeltaTable(matSIni, matSDia, v => {
+      const a = Math.abs(v);
+      return a >= 1000000 ? '$' + (a/1000000).toFixed(1) + 'M' : '$' + Math.round(a/1000) + 'k';
+    });
+
+  // ── Gráfica de medio de pago — Cartera Inicial vs Cartera Diaria en contratos ──
+  const PI_medio  = getPI('resumen');
+  const medioIni  = (PI_medio && PI_medio.medioCarteraMap) ? PI_medio.medioCarteraMap : {};
+  const medioDia  = P.medioCarteraMap || {};
+
+  // Unión de todas las claves presentes en ambas carteras
+  const medioKeys2 = [...new Set([...Object.keys(medioIni), ...Object.keys(medioDia)])].sort();
+
+  destroyChart('chart-mediopago-contratos');
+  CHARTS['chart-mediopago-contratos'] = new Chart(document.getElementById('chart-mediopago-contratos'), {
+    type: 'bar',
+    data: {
+      labels: medioKeys2,
+      datasets: [
+        {
+          label: 'Cartera Inicial',
+          data: medioKeys2.map(k => medioIni[k] || 0),
+          backgroundColor: 'rgba(26,92,58,0.82)',
+          borderRadius: 5
+        },
+        {
+          label: 'Cartera Diaria',
+          data: medioKeys2.map(k => medioDia[k] || 0),
+          backgroundColor: 'rgba(106,191,138,0.82)',
+          borderRadius: 5
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#374151', font: { size: 12, weight: '600' } } },
+        datalabels: {
+          display: true,
+          anchor: 'end', align: 'right',
+          color: '#1a5c3a',
+          font: { size: 11, weight: '700' },
+          formatter: v => v || ''
+        }
+      },
+      scales: {
+        x: { ticks: { color:'#5a7a65', font:{size:10} }, grid: { color:'rgba(212,228,218,.4)' } },
+        y: { ticks: { color:'#374151', font:{size:12, weight:'600'} }, grid: { display:false } }
+      },
+      layout: { padding: { right: 50 } }
+    }
+  });
+}
+
+// ══════════════════════════════════════════
+// BLOQUE 2 – MORA
+// ══════════════════════════════════════════
+function renderMora() {
+  const inhumado = document.getElementById('filter-mora-inhumado')?.value || '';
+  if (VU_FILTERS.mora) { VU_FILTERS.mora.inhumado = inhumado; VU_FILTERS.mora.estado = ''; }
+  renderSemaforo();
+  renderMoraPrios();
+  renderMoraTable();
+}
+
+function renderSemaforo() {
+  const P = getP('mora');
+  let ca = applyVUFilters(P.carteraActiva, 'mora');
+
+  // Clasificar por semáforo
+  const semaMap = { rojo:[], naranja:[], amarillo:[], verde:[] };
+  ca.forEach(r => { const s = calcSemaforo(r); if (semaMap[s]) semaMap[s].push(r); });
+
+  // KPI cards semáforo
+  document.getElementById('semaforo-cards').innerHTML = SEMAFORO_DEF.map(sd => {
+    const items = semaMap[sd.key] || [];
+    const saldo = items.reduce((s,r) => s + getSaldo(r), 0);
+    return `<div class="kpi-card" style="border-left:4px solid ${sd.color};background:${sd.bg}">
+      <div class="kpi-label">${sd.label}</div>
+      <div class="kpi-value" style="color:${sd.color}">${items.length}</div>
+      <div class="kpi-sub">${fmtMoney(saldo)} saldo</div>
+    </div>`;
+  }).join('');
+
+  // Gráfica dona semáforo — con porcentajes en etiquetas
+  const semColors = ['rgba(192,57,43,.82)','rgba(212,105,30,.82)','rgba(200,154,0,.82)','rgba(90,138,46,.82)'];
+  const semTotal  = SEMAFORO_DEF.reduce((s,sd) => s + (semaMap[sd.key]||[]).length, 0);
+  destroyChart('chart-semaforo-count');
+  CHARTS['chart-semaforo-count'] = new Chart(document.getElementById('chart-semaforo-count'), {
+    type:'doughnut',
+    data:{ labels: SEMAFORO_DEF.map(s=>s.label), datasets:[{ data: SEMAFORO_DEF.map(s=>(semaMap[s.key]||[]).length), backgroundColor:semColors, borderWidth:0 }] },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{ position:'bottom', labels:{ color:'#5a7a65', font:{size:11} } },
+        datalabels:{
+          display: ctx => ctx.dataset.data[ctx.dataIndex] > 0,
+          color:'#fff', font:{size:12,weight:'800'},
+          formatter:(v) => semTotal > 0 ? (v/semTotal*100).toFixed(1)+'%' : ''
+        }
+      }
+    }
+  });
+
+  // Gráfica barra saldo — con número de contratos como etiqueta en cada barra
+  const saldoData    = SEMAFORO_DEF.map(s=>(semaMap[s.key]||[]).reduce((acc,r)=>acc+getSaldo(r),0));
+  const contratosArr = SEMAFORO_DEF.map(s=>(semaMap[s.key]||[]).length);
+  destroyChart('chart-semaforo-saldo');
+  CHARTS['chart-semaforo-saldo'] = new Chart(document.getElementById('chart-semaforo-saldo'), {
+    type:'bar',
+    data:{ labels: SEMAFORO_DEF.map(s=>s.label), datasets:[{ label:'Saldo Contrato ($)', data: saldoData, backgroundColor:semColors, borderRadius:6 }] },
+    options:{
+      responsive:true,
+      plugins:{
+        legend:{display:false},
+        datalabels:{
+          display: true, anchor:'end', align:'end',
+          color:'#374151', font:{size:11,weight:'700'},
+          formatter: (v,ctx) => {
+            const n = contratosArr[ctx.dataIndex];
+            return n > 0 ? n+' ctos' : '';
+          }
+        }
+      },
+      scales:chartScales('$'),
+      layout:{padding:{top:24}}
+    }
+  });
+
+  // Tabla resumen semáforo — con fila P0 primero
+  const p0Items = P.carteraActiva.filter(r => r._prioridad === 'P0');
+  const p0SaldoCont = p0Items.reduce((s,r)=>s+getSaldo(r),0);
+  const p0SaldoVenc = p0Items.reduce((s,r)=>s+getSaldoVencido(r),0);
+  const totalRows   = ca.length + (p0Items.length > 0 ? 0 : 0); // ca ya incluye P0
+
+  document.getElementById('tabla-semaforo-resumen').innerHTML = `<table><thead><tr>
+    <th>Nivel de Riesgo</th><th>Descripción</th><th style="text-align:right">Contratos</th>
+    <th style="text-align:right">% Total</th><th style="text-align:right">Saldo Contrato</th><th style="text-align:right">Saldo Vencido</th>
+  </tr></thead><tbody>
+    <tr style="background:rgba(127,0,0,.09)">
+      <td><strong style="color:#7f0000">⚫ P0 — Cobro Crítico</strong></td>
+      <td style="color:var(--text2);font-size:12px">0 cuotas pagadas Y Mora ≥16d</td>
+      <td style="text-align:right;font-weight:700;color:#7f0000">${p0Items.length}</td>
+      <td style="text-align:right;color:var(--text2)">${ca.length>0?(p0Items.length/ca.length*100).toFixed(1):'0'}%</td>
+      <td style="text-align:right;font-weight:600">${fmtMoney(p0SaldoCont)}</td>
+      <td style="text-align:right;font-weight:600;color:#7f0000">${fmtMoney(p0SaldoVenc)}</td>
+    </tr>
+    ${SEMAFORO_DEF.map(sd => {
+      const items = semaMap[sd.key]||[];
+      const saldoCont = items.reduce((s,r)=>s+getSaldo(r),0);
+      const saldoVenc = items.reduce((s,r)=>s+getSaldoVencido(r),0);
+      return `<tr style="background:${sd.bg}">
+        <td><strong style="color:${sd.color}">${sd.label}</strong></td>
+        <td style="color:var(--text2);font-size:12px">${sd.desc}</td>
+        <td style="text-align:right;font-weight:700;color:${sd.color}">${items.length}</td>
+        <td style="text-align:right;color:var(--text2)">${ca.length>0?(items.length/ca.length*100).toFixed(1):'0'}%</td>
+        <td style="text-align:right;font-weight:600">${fmtMoney(saldoCont)}</td>
+        <td style="text-align:right;color:${sd.color};font-weight:600">${fmtMoney(saldoVenc)}</td>
+      </tr>`;
+    }).join('')}
+    <tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
+      <td>TOTAL EN MORA</td><td></td>
+      <td style="text-align:right">${ca.filter(r=>calcSemaforo(r)!=='verde').length}</td>
+      <td style="text-align:right">—</td>
+      <td style="text-align:right">${fmtMoney(ca.reduce((s,r)=>s+getSaldo(r),0))}</td>
+      <td style="text-align:right;color:var(--p1)">${fmtMoney(ca.reduce((s,r)=>s+getSaldoVencido(r),0))}</td>
+    </tr>
+  </tbody></table>`;
+}
+
+function renderMoraPrios() {
+  const P = getP('mora');
+  let ca = applyVUFilters(P.carteraActiva, 'mora');
+  // Recalcular prioGroups sobre cartera filtrada
+  const prioGroups = {P0:[],P1:[],P2:[],P3:[],P4:[],'Sin mora':[]};
+  ca.forEach(r => { (prioGroups[r._prioridad]||prioGroups['Sin mora']).push(r); });
+
+  const prioInfo = {
+    P0:{label:'P0 — Cobro Crítico', desc:'CANT_CUOTAS_PAGADAS = 0  Y  DIAS_DE_MORA ≥ 16', cls:'p1'},
+    P1:{label:'P1 — Crítico', desc:'NP ≥120 días Y Mora ≥120 días', cls:'p1'},
+    P2:{label:'P2 — Alto',    desc:'NP 90–119 y Mora >120  |  Mora 90–119 y NP >120',       cls:'p2'},
+    P3:{label:'P3 — Medio',   desc:'NP 60–89 y Mora >60  |  Mora 60–89 y NP >60',           cls:'p3'},
+    P4:{label:'P4 — Bajo',    desc:'NP >30 días  O  Mora >30 días',                        cls:'p4'}
+  };
+  document.getElementById('prio-cards').innerHTML = Object.entries(prioInfo).map(([p,info])=>{
+    const items=prioGroups[p]||[]; const saldo=items.reduce((s,r)=>s+getSaldoVencido(r),0);
+    return `<div class="prio-card ${info.cls}"><div class="prio-badge">${info.label}</div><div class="prio-count">${items.length}</div><div class="prio-label">contratos</div><div class="prio-monto">${fmtMoney(saldo)}</div><div class="prio-desc">${info.desc}</div></div>`;
+  }).join('');
+
+  const labels=['P0','P1','P2','P3','P4'];
+  const colors=['rgba(127,0,0,.90)','rgba(192,57,43,.82)','rgba(212,105,30,.82)','rgba(200,154,0,.82)','rgba(90,138,46,.82)'];
+  // charts de prioridad eliminados — solo tarjetas
+  destroyChart('chart-prio-saldo');
+  destroyChart('chart-prio-count');
+}
+
+function renderMoraTable() {
+  const P  = getP('mora');
+  const fp = document.getElementById('filter-prio').value;
+  const s  = (document.getElementById('search-mora').value||'').toLowerCase();
+  let rows = applyVUFilters(P.carteraActiva.filter(r=>r._prioridad!=='Sin mora'), 'mora');
+  if (fp) rows = rows.filter(r=>r._prioridad===fp);
+  if (s)  rows = rows.filter(r=>String(r['CONTRATO']).includes(s)||String(r['CLIENTE']||'').toLowerCase().includes(s));
+  rows.sort((a,b)=>({P0:0,P1:1,P2:2,P3:3,P4:4}[a._prioridad]||9)-({P0:0,P1:1,P2:2,P3:3,P4:4}[b._prioridad]||9));
+  document.getElementById('tabla-mora').innerHTML = `<table><thead><tr><th>Contrato</th><th>Cliente</th><th>Empresa</th><th>Prioridad</th><th>Riesgo</th><th>Nivel Mora</th><th>Días Mora</th><th>Días Sin Pago</th><th>Saldo Vencido</th><th>Valor Cuota</th></tr></thead><tbody>
+    ${rows.slice(0,300).map(r=>{
+      const sem = calcSemaforo(r);
+      const semDef = SEMAFORO_DEF.find(x=>x.key===sem)||SEMAFORO_DEF[3];
+      return `<tr><td>${r['CONTRATO']}</td><td>${r['CLIENTE']||''}</td><td>${String(r['EMPRESA']||'').split(' ')[0]}</td><td><span class="badge badge-${r._prioridad.toLowerCase()}">${r._prioridad}</span></td><td><span style="font-size:11px;font-weight:700;color:${semDef.color}">${semDef.label.split(' ')[0]}</span></td><td>${r['NIVEL_MORA']||''}</td><td>${parseNum(r['DIAS_DE_MORA'])}</td><td>${parseNum(r['DIAS_DE_NO_PAGO'])}</td><td>${fmtMoney(getSaldoVencido(r))}</td><td>${fmtMoney(getCuota(r))}</td></tr>`;
+    }).join('')}
+  </tbody></table>`;
+}
+
+// ══════════════════════════════════════════
+// EXPORTAR EXCEL – MORA (BLOQUE 2)
+// ══════════════════════════════════════════
+function exportarMora() {
+  const P  = getP('mora');
+  const fp = document.getElementById('filter-prio').value;
+  const s  = (document.getElementById('search-mora').value||'').toLowerCase();
+
+  // Aplicar los mismos filtros activos en pantalla
+  let rows = P.carteraActiva.filter(r => r._prioridad !== 'Sin mora');
+  if (fp) rows = rows.filter(r => r._prioridad === fp);
+  if (s)  rows = rows.filter(r =>
+    String(r['CONTRATO']).toLowerCase().includes(s) ||
+    String(r['CLIENTE']||'').toLowerCase().includes(s)
+  );
+  rows.sort((a,b) => ({P0:0,P1:1,P2:2,P3:3,P4:4}[a._prioridad]||9) - ({P0:0,P1:1,P2:2,P3:3,P4:4}[b._prioridad]||9));
+
+  if (!rows.length) { alert('No hay contratos en mora con los filtros actuales.'); return; }
+
+  const wb = XLSX.utils.book_new();
+  const PRIORIDADES = fp ? [fp] : ['P0','P1','P2','P3','P4'];
+
+  // ── Una hoja por prioridad (respeta el filtro activo) ──
+  PRIORIDADES.forEach(p => {
+    const grupo = rows.filter(r => r._prioridad === p);
+    if (!grupo.length) return;
+    const data = grupo.map(r => ({
+      'CONTRATO':          r['CONTRATO'],
+      'CLIENTE':           r['CLIENTE'],
+      'EMPRESA':           r['EMPRESA'],
+      'RUT':               r['NUMERO_DOCUMENTO'],
+      'LIDER':             r['LIDER'],
+      'ASESOR':            r['ASESOR'],
+      'PRIORIDAD':         r._prioridad,
+      'NIVEL_MORA':        r['NIVEL_MORA'],
+      'DIAS_MORA':         parseNum(r['DIAS_DE_MORA']),
+      'DIAS_SIN_PAGO':     parseNum(r['DIAS_DE_NO_PAGO']),
+      'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+      'SALDO_CONTRATO': parseNum(r['SALDO_CONTRATO']),
+      'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+      'CUOTAS_PENDIENTES': parseNum(r['CUOTAS_PENDIENTES']),
+      'ULTIMA_FECHA_PAGO': r['ULTIMA_FECHA_PAGO'],
+      'TIPO_CONTRATO':     r['TIPO_CONTRATO'],
+      'ESTADO_CONTRATO':   r['ESTADO_CONTRATO'],
+      'TELEFONO':          r['TELEFONO'],
+      'TELEFONO_MOVIL':    r['TELEFONO_MOVIL'],
+      'EMAIL':             r['EMAIL'],
+      'REGION':            r['REGION'],
+      'COMUNA':            r['COMUNA'],
+      'DIRECCION':         r['DIRECCION_COBRO'],
+    }));
+    const sheetName = p === 'P0' ? 'P0 Cobro Crítico'
+                    : p === 'P1' ? 'P1 Crítico'
+                    : p === 'P2' ? 'P2 Alto'
+                    : p === 'P3' ? 'P3 Medio'
+                    : 'P4 Bajo';
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheetName);
+  });
+
+  // ── Hoja resumen por prioridad ──
+  const resumen = PRIORIDADES.map(p => {
+    const grupo = rows.filter(r => r._prioridad === p);
+    return {
+      'PRIORIDAD':      p,
+      'DESCRIPCION':    p==='P0'?'Cobro Crítico':p==='P1'?'Crítico':p==='P2'?'Alto':p==='P3'?'Medio':'Bajo',
+      'CONTRATOS':      grupo.length,
+      'SALDO_VENCIDO':  grupo.reduce((s,r)=>s+getSaldoVencido(r),0),
+      'SALDO_CONTRATO': grupo.reduce((s,r)=>s+getSaldo(r),0),
+      'VALOR_CUOTAS':   grupo.reduce((s,r)=>s+getCuota(r),0),
+    };
+  }).filter(d => d.CONTRATOS > 0);
+
+  // Fila de totales
+  resumen.push({
+    'PRIORIDAD':      'TOTAL',
+    'DESCRIPCION':    '',
+    'CONTRATOS':      resumen.reduce((s,d)=>s+d.CONTRATOS,0),
+    'SALDO_VENCIDO':  resumen.reduce((s,d)=>s+d.SALDO_VENCIDO,0),
+    'SALDO_CONTRATO': resumen.reduce((s,d)=>s+d.SALDO_CONTRATO,0),
+    'VALOR_CUOTAS':   resumen.reduce((s,d)=>s+d.VALOR_CUOTAS,0),
+  });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), 'Resumen');
+
+  const fecha    = new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+  const empKey   = EMP_STATE['mora'];
+  const empLabel = empKey === 'ambas' ? 'Ambas' : EMP_NAMES[empKey] || empKey;
+  const prioLabel = fp ? `_${fp}` : '_Todas';
+  XLSX.writeFile(wb, `Mora_Priorizacion${prioLabel}_${empLabel}_${fecha}.xlsx`);
+}
+
+// ══════════════════════════════════════════
+// BLOQUE 3 – RECAUDO
+// ══════════════════════════════════════════
+function renderRecaudoSection() {
+  const P = getP('recaudo');
+
+  // Populate fecha selector (solo si vacío o cambió empresa)
+  const sel = document.getElementById('filter-fecha');
+  const fechas = [...new Set(P.recaudo.filter(r=>r._fecha).map(r=>r._fecha.toISOString().split('T')[0]))].sort();
+  const prevVal = sel.value;
+  sel.innerHTML = '<option value="">Todos los días</option>' + fechas.map(f=>`<option value="${f}">${new Date(f+'T12:00:00').toLocaleDateString('es-CL',{weekday:'short',day:'2-digit',month:'2-digit'})}</option>`).join('');
+  if (fechas.includes(prevVal)) sel.value = prevVal;
+  else if (fechas.length) sel.value = fechas[fechas.length-1];
+
+  const selectedFecha = sel.value;
+  const recFiltrado = selectedFecha ? P.recaudo.filter(r=>r._fecha&&r._fecha.toISOString().split('T')[0]===selectedFecha) : P.recaudo;
+
+  const totalDia = recFiltrado.reduce((s,r)=>s+r._monto,0);
+  const contDia  = new Set(recFiltrado.map(r=>r['NUMERO_CONTRATO'])).size;
+
+  document.getElementById('kpis-recaudo').innerHTML = `
+    <div class="kpi-card green"><div class="kpi-label">Monto Recaudado</div><div class="kpi-value" style="color:var(--green-mid)">${fmtMoney(totalDia)}</div><div class="kpi-sub">${selectedFecha?new Date(selectedFecha+'T12:00:00').toLocaleDateString('es-CL'):'Todo el período'}</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Contratos Pagados</div><div class="kpi-value" style="color:var(--green-darkest)">${contDia}</div><div class="kpi-sub">contratos únicos</div></div>
+    <div class="kpi-card lite"><div class="kpi-label">Ticket Promedio</div><div class="kpi-value">${contDia>0?fmtMoney(totalDia/contDia):'$0'}</div><div class="kpi-sub">por contrato</div></div>
+  `;
+
+  document.getElementById('count-pagos').textContent = recFiltrado.length + ' registros';
+  document.getElementById('tabla-pagos').innerHTML = `<table><thead><tr><th>Contrato</th><th>Cliente</th><th>Empresa</th><th>Monto</th><th>Medio Pago</th></tr></thead><tbody>
+    ${recFiltrado.slice(0,300).map(r=>`<tr><td>${r['NUMERO_CONTRATO']}</td><td>${String(r['CLIENTE']||'').split(' ').slice(0,3).join(' ')}</td><td>${String(r['EMPRESA']||'').split(' ')[0]}</td><td style="color:var(--green-mid);font-weight:600">${fmtMoney(r._monto)}</td><td>${r['MEDIO_PAGO_ASIGNADO']||''}</td></tr>`).join('')}
+  </tbody></table>`;
+
+  const pagadosSet = new Set(P.recaudo.map(r=>String(r['NUMERO_CONTRATO'])));
+  let pend = P.carteraActiva.filter(r=>!pagadosSet.has(String(r['CONTRATO'])));
+
+  // Filtro por prioridad
+  const filtroPrio = document.getElementById('filter-pendientes-prio')?.value || '';
+  if (filtroPrio) pend = pend.filter(r => r._prioridad === filtroPrio);
+
+  // Ordenar por prioridad (P0 primero) y luego por días de mora desc
+  const PRIO_ORDER = {P0:0,P1:1,P2:2,P3:3,P4:4,'Sin mora':5};
+  pend.sort((a,b) => {
+    const po = (PRIO_ORDER[a._prioridad]??9) - (PRIO_ORDER[b._prioridad]??9);
+    return po !== 0 ? po : parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  document.getElementById('count-pendientes').textContent =
+    pend.length + ' contratos' + (filtroPrio ? ` · ${filtroPrio}` : '');
+
+  const PRIO_COLORS = {P0:'#7f0000',P1:'var(--p1)',P2:'var(--p2)',P3:'var(--p3)',P4:'var(--p4)','Sin mora':'var(--text2)'};
+
+  document.getElementById('tabla-pendientes').innerHTML = `
+    <table><thead><tr>
+      <th>Contrato</th><th>Cliente</th><th>Empresa</th>
+      <th style="text-align:right">Valor Cuota</th>
+      <th style="text-align:right">Días Mora</th>
+      <th style="text-align:right">Días Sin Pago</th>
+      <th>Prioridad</th><th>Nivel Mora</th>
+    </tr></thead><tbody>
+    ${pend.slice(0,500).map(r=>{
+      const col  = PRIO_COLORS[r._prioridad] || 'var(--text2)';
+      const diasM  = parseNum(r['DIAS_DE_MORA']);
+      const diasNP = parseNum(r['DIAS_DE_NO_PAGO']);
+      return `<tr>
+        <td>${r['CONTRATO']}</td>
+        <td>${String(r['CLIENTE']||'').split(' ').slice(0,3).join(' ')}</td>
+        <td>${String(r['EMPRESA']||'').split(' ')[0]}</td>
+        <td style="text-align:right;color:var(--green-dark);font-weight:600">${fmtMoney(getCuota(r))}</td>
+        <td style="text-align:right;font-weight:700;color:${col}">${diasM}</td>
+        <td style="text-align:right;font-weight:700;color:${col}">${diasNP}</td>
+        <td><span style="font-weight:800;color:${col};padding:2px 6px;border-radius:4px;background:${col}18">${r._prioridad}</span></td>
+        <td style="font-size:11px;color:var(--text2)">${r['NIVEL_MORA']||'—'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table>`;
+}
+
+function exportarPendientes() {
+  const P = getP('recaudo');
+  if (!P) return;
+  const pagadosSet = new Set(P.recaudo.map(r=>String(r['NUMERO_CONTRATO'])));
+  let pend = P.carteraActiva.filter(r=>!pagadosSet.has(String(r['CONTRATO'])));
+
+  const filtroPrio = document.getElementById('filter-pendientes-prio')?.value || '';
+  if (filtroPrio) pend = pend.filter(r => r._prioridad === filtroPrio);
+
+  const PRIO_ORDER = {P0:0,P1:1,P2:2,P3:3,P4:4,'Sin mora':5};
+  pend.sort((a,b) => {
+    const po = (PRIO_ORDER[a._prioridad]??9) - (PRIO_ORDER[b._prioridad]??9);
+    return po !== 0 ? po : parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  const data = pend.map(r => ({
+    'CONTRATO':        r['CONTRATO']       || '',
+    'CLIENTE':         r['CLIENTE']        || '',
+    'EMPRESA':         r['EMPRESA']        || '',
+    'TELEFONO':        r['TELEFONO']       || r['TELEFONO_MOVIL'] || '',
+    'EMAIL':           String(r['EMAIL']||'').split(';')[0].trim(),
+    'PRIORIDAD':       r._prioridad,
+    'NIVEL_MORA':      r['NIVEL_MORA']     || '',
+    'DIAS_DE_MORA':    parseNum(r['DIAS_DE_MORA']),
+    'DIAS_DE_NO_PAGO': parseNum(r['DIAS_DE_NO_PAGO']),
+    'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+    'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+    'SALDO_CONTRATO': parseNum(r['SALDO_CONTRATO']),
+    'CANT_CUOTAS_PAGADAS': parseNum(r['CANT_CUOTAS_PAGADAS']),
+  }));
+
+  const wb = XLSX.utils.book_new();
+  const sheetName = filtroPrio ? `Pendientes ${filtroPrio}` : 'Pendientes';
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), sheetName);
+  const fname = filtroPrio ? `pendientes_${filtroPrio}.xlsx` : 'pendientes_todos.xlsx';
+  XLSX.writeFile(wb, fname);
+}
+
+// ══════════════════════════════════════════
+// BLOQUE 4 – META POR DÍA
+// ══════════════════════════════════════════
+function renderMetaDia() {
+  const P = getP('metadia');
+  const md = P.metaDiaria;
+  const hoy = new Date().getDate();
+
+  const totMeta  = md.reduce((s,d)=>s+d.metaMonto,0);
+  const totMetaC = md.reduce((s,d)=>s+d.metaContratos,0);
+  const totRec   = md.reduce((s,d)=>s+d.recaudadoMonto,0);
+  const totRecC  = md.reduce((s,d)=>s+d.recaudadoContratos,0);
+  const pctM = totMeta>0?(totRec/totMeta*100):0;
+  const pctC = totMetaC>0?(totRecC/totMetaC*100):0;
+
+  document.getElementById('kpis-metadia').innerHTML = `
+    <div class="kpi-card dark"><div class="kpi-label">Meta Total — Monto</div><div class="kpi-value">${fmtMoney(totMeta)}</div><div class="kpi-sub">${totMetaC} contratos activos</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Recaudado Mes</div><div class="kpi-value" style="color:var(--green-mid)">${fmtMoney(totRec)}</div><div class="kpi-sub">${totRecC} contratos pagaron</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">% Avance Monto</div><div class="kpi-value" style="color:var(--green-dark)">${pctM.toFixed(1)}%</div><div class="kpi-sub">Faltante: ${fmtMoney(Math.max(totMeta-totRec,0))}</div></div>
+    <div class="kpi-card lite"><div class="kpi-label">% Avance Contratos</div><div class="kpi-value" style="color:var(--green-dark)">${pctC.toFixed(1)}%</div><div class="kpi-sub">${totRecC} de ${totMetaC}</div></div>
+  `;
+
+  // Acumulados día a día
+  let acumMeta = 0, acumRec = 0;
+  const acumMetaArr = md.map(d => { acumMeta += d.metaMonto;      return acumMeta; });
+  const acumRecArr  = md.map(d => { acumRec  += d.recaudadoMonto; return acumRec;  });
+
+  destroyChart('chart-meta-dia');
+  CHARTS['chart-meta-dia'] = new Chart(document.getElementById('chart-meta-dia'),{
+    type: 'bar',
+    data: {
+      labels: md.map(d => 'D'+d.dia),
+      datasets: [
+        // Barras diarias
+        { type:'bar', label:'Meta Diaria ($)',      data: md.map(d=>d.metaMonto),      backgroundColor: md.map(d=>d.dia===hoy?'rgba(26,92,58,0.18)':'rgba(106,191,138,0.18)'), borderColor: md.map(d=>d.dia===hoy?'rgba(26,92,58,0.7)':'rgba(58,155,99,0.45)'), borderWidth:1, borderRadius:4, yAxisID:'y' },
+        { type:'bar', label:'Recaudado Diario ($)', data: md.map(d=>d.recaudadoMonto), backgroundColor: md.map(d=>d.dia===hoy?'rgba(26,92,58,0.92)':'rgba(58,155,99,0.78)'), borderRadius:4, yAxisID:'y' },
+        // Líneas acumuladas (eje secundario)
+        { type:'line', label:'Meta Acumulada ($)',     data: acumMetaArr, borderColor:'rgba(39,107,71,0.9)',   backgroundColor:'transparent', borderWidth:2.5, borderDash:[6,3], pointRadius:2, pointHoverRadius:5, tension:0.3, yAxisID:'y2' },
+        { type:'line', label:'Recaudo Acumulado ($)',  data: acumRecArr,  borderColor:'rgba(192,57,43,0.85)',  backgroundColor:'transparent', borderWidth:2.5, pointRadius:2, pointHoverRadius:5, tension:0.3, yAxisID:'y2' },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode:'index', intersect:false },
+      plugins: {
+        legend: { display:true, labels:{ color:'#5a7a65', font:{size:11}, boxWidth:14 } },
+        tooltip: { callbacks: { label: ctx => {
+          const v = ctx.parsed.y;
+          return ` ${ctx.dataset.label}: $${Math.round(v).toLocaleString('es-CL')}`;
+        }}}
+      },
+      scales: {
+        x:  { ticks:{color:'#5a7a65',font:{size:10}}, grid:{color:'rgba(212,228,218,0.6)'} },
+        y:  { position:'left',  ticks:{color:'#5a7a65',font:{size:10}, callback: v=>'$'+Math.round(v/1000)+'k'}, grid:{color:'rgba(212,228,218,0.6)'}, title:{display:true,text:'Diario',color:'#5a7a65',font:{size:10}} },
+        y2: { position:'right', ticks:{color:'#374151',font:{size:10}, callback: v=>'$'+Math.round(v/1000000*10)/10+'M'}, grid:{display:false}, title:{display:true,text:'Acumulado',color:'#374151',font:{size:10}} }
+      }
+    }
+  });
+
+  document.getElementById('meta-dia-total').textContent = md.length + ' días con actividad';
+
+  const colorOf = (pct) => pct>=100?'var(--green-mid)':pct>=60?'var(--green-dark)':pct>0?'var(--p2)':'var(--text2)';
+  const rows = md.map(d=>{
+    const isHoy=d.dia===hoy;
+    const pm=d.pctMonto||0; const pc=d.pctContratos||0;
+    return `<tr style="${isHoy?'background:rgba(39,107,71,0.05);border-left:3px solid var(--green-dark)':''}">
+      <td>${isHoy?`<strong style="color:var(--green-darkest)">${d.dia} ★</strong>`:d.dia}</td>
+      <td style="text-align:right">${d.metaContratos}</td>
+      <td style="text-align:right;font-weight:600">${fmtMoney(d.metaMonto)}</td>
+      <td style="text-align:right">${d.recaudadoContratos>0?`<span style="color:var(--green-mid);font-weight:600">${d.recaudadoContratos}</span>`:'<span style="color:var(--text2)">0</span>'}</td>
+      <td style="text-align:right">${d.recaudadoMonto>0?`<span style="color:var(--green-mid);font-weight:600">${fmtMoney(d.recaudadoMonto)}</span>`:'<span style="color:var(--text2)">$0</span>'}</td>
+      <td style="text-align:right"><span style="color:${colorOf(pc)};font-weight:600">${d.pctContratos!==null?pc.toFixed(1)+'%':'—'}</span></td>
+      <td style="text-align:right"><span style="color:${colorOf(pm)};font-weight:600">${d.pctMonto!==null?pm.toFixed(1)+'%':'—'}</span></td>
+      <td style="min-width:110px">${d.metaMonto>0?`<div style="background:var(--green-bg);border-radius:99px;height:6px;overflow:hidden;border:1px solid var(--green-pale)"><div style="height:100%;border-radius:99px;width:${Math.min(pm,100)}%;background:${colorOf(pm)}"></div></div>`:''}</td>
+    </tr>`;
+  });
+
+  const totRow = `<tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
+    <td><strong>TOTAL</strong></td>
+    <td style="text-align:right"><strong>${totMetaC}</strong></td>
+    <td style="text-align:right"><strong>${fmtMoney(totMeta)}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--green-mid)">${totRecC}</strong></td>
+    <td style="text-align:right"><strong style="color:var(--green-mid)">${fmtMoney(totRec)}</strong></td>
+    <td style="text-align:right"><strong style="color:${colorOf(pctC)}">${pctC.toFixed(1)}%</strong></td>
+    <td style="text-align:right"><strong style="color:${colorOf(pctM)}">${pctM.toFixed(1)}%</strong></td>
+    <td></td>
+  </tr>`;
+
+  document.getElementById('tabla-meta-dia').innerHTML = `<table><thead><tr>
+    <th>Día</th><th style="text-align:right">Contratos Meta</th><th style="text-align:right">Monto Meta</th>
+    <th style="text-align:right">Contratos Rec.</th><th style="text-align:right">Monto Rec.</th>
+    <th style="text-align:right">% Contratos</th><th style="text-align:right">% Monto</th><th>Avance</th>
+  </tr></thead><tbody>${rows.join('')}${totRow}</tbody></table>`;
+}
+
+// ══════════════════════════════════════════
+// BLOQUE 5 – MORA CRÍTICA
+// ══════════════════════════════════════════
+function getCriticos() {
+  const P = getP('criticos');
+  return P.carteraActiva.filter(r => {
+    // Doble exclusión explícita: carteraActiva ya filtra INACTIVO, aquí lo reforzamos
+    if (String(r['ESTADO_CONTRATO']||'').trim() === 'INACTIVO') return false;
+    const mora   = String(r['NIVEL_MORA'] || '').trim();
+    const diasM  = parseNum(r['DIAS_DE_MORA']);
+    const diasNP = parseNum(r['DIAS_DE_NO_PAGO']);
+    return (mora === 'MAS DE 120 D' || mora === 'HASTA 120 D' || diasM > 120) && diasNP > 120;
+  });
+}
+
+function renderCriticos() {
+  const criticos = getCriticos();
+
+  // ── KPIs ──
+  const totalSaldo    = criticos.reduce((s,r) => s + getSaldoVencido(r), 0);
+  const totalContrato = criticos.reduce((s,r) => s + getSaldo(r), 0);
+  const totalCuota    = criticos.reduce((s,r) => s + getCuota(r), 0);
+  const nLideres  = new Set(criticos.map(r => r['LIDER']  || 'Sin Líder')).size;
+  const nAsesores = new Set(criticos.map(r => r['ASESOR'] || 'Sin Asesor')).size;
+
+  document.getElementById('kpis-criticos').innerHTML = `
+    <div class="kpi-card red"><div class="kpi-label">Contratos Críticos</div><div class="kpi-value" style="color:var(--p1)">${criticos.length}</div><div class="kpi-sub">>120d mora y >120d sin pago</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Saldo Vencido Total</div><div class="kpi-value" style="color:var(--p1)">${fmtMoney(totalSaldo)}</div><div class="kpi-sub">Saldo contrato: ${fmtMoney(totalContrato)}</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Cuotas Mensuales</div><div class="kpi-value">${fmtMoney(totalCuota)}</div><div class="kpi-sub">Meta de recuperación</div></div>
+    <div class="kpi-card lite"><div class="kpi-label">Líderes / Asesores</div><div class="kpi-value" style="color:var(--green-dark)">${nLideres} / ${nAsesores}</div><div class="kpi-sub">involucrados</div></div>
+  `;
+
+  // ── Resumen por Líder ──
+  const liderMap = {};
+  criticos.forEach(r => {
+    const l = String(r['LIDER'] || 'Sin Líder').trim();
+    if (!liderMap[l]) liderMap[l] = { contratos:0, saldoVencido:0, saldoContrato:0 };
+    liderMap[l].contratos++;
+    liderMap[l].saldoVencido  += getSaldoVencido(r);
+    liderMap[l].saldoContrato += getSaldo(r);
+  });
+  const liderRows = Object.entries(liderMap).sort((a,b) => b[1].contratos - a[1].contratos);
+  document.getElementById('count-por-lider').textContent = liderRows.length + ' líderes';
+  document.getElementById('tabla-criticos-lider').innerHTML = `<table><thead><tr>
+    <th>Líder</th><th style="text-align:right">Contratos</th><th style="text-align:right">Saldo Vencido</th><th style="text-align:right">Saldo Contrato</th>
+  </tr></thead><tbody>
+    ${liderRows.map(([l,d]) => `<tr>
+      <td>${l}</td>
+      <td style="text-align:right"><span style="color:var(--p1);font-weight:700">${d.contratos}</span></td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(d.saldoVencido)}</td>
+      <td style="text-align:right">${fmtMoney(d.saldoContrato)}</td>
+    </tr>`).join('')}
+    <tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
+      <td>TOTAL</td>
+      <td style="text-align:right;color:var(--p1)">${criticos.length}</td>
+      <td style="text-align:right;color:var(--p2)">${fmtMoney(totalSaldo)}</td>
+      <td style="text-align:right">${fmtMoney(totalContrato)}</td>
+    </tr>
+  </tbody></table>`;
+
+  // ── Resumen por Asesor ──
+  const asesorMap = {};
+  criticos.forEach(r => {
+    const a = String(r['ASESOR'] || 'Sin Asesor').trim();
+    if (!asesorMap[a]) asesorMap[a] = { contratos:0, saldoVencido:0, lider:String(r['LIDER']||'').trim() };
+    asesorMap[a].contratos++;
+    asesorMap[a].saldoVencido += getSaldoVencido(r);
+  });
+  const asesorRows = Object.entries(asesorMap).sort((a,b) => b[1].contratos - a[1].contratos);
+  document.getElementById('count-por-asesor').textContent = asesorRows.length + ' asesores';
+  document.getElementById('tabla-criticos-asesor').innerHTML = `<table><thead><tr>
+    <th>Asesor</th><th>Líder</th><th style="text-align:right">Contratos</th><th style="text-align:right">Saldo Vencido</th>
+  </tr></thead><tbody>
+    ${asesorRows.map(([a,d]) => `<tr>
+      <td>${a}</td>
+      <td style="color:var(--text2)">${d.lider}</td>
+      <td style="text-align:right"><span style="color:var(--p1);font-weight:700">${d.contratos}</span></td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(d.saldoVencido)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+
+  // ── Filtros ──
+  const filterGrupo = document.getElementById('filter-criticos-grupo').value;
+  const filterValor = document.getElementById('filter-criticos-valor');
+  const search      = (document.getElementById('search-criticos').value || '').toLowerCase();
+
+  if (filterGrupo === 'lider') {
+    const opts = ['<option value="">— Todos los líderes —</option>',
+      ...liderRows.map(([l]) => `<option value="${l}">${l}</option>`)].join('');
+    if (filterValor.dataset.mode !== 'lider') { filterValor.innerHTML = opts; filterValor.dataset.mode = 'lider'; }
+  } else if (filterGrupo === 'asesor') {
+    const opts = ['<option value="">— Todos los asesores —</option>',
+      ...asesorRows.map(([a]) => `<option value="${a}">${a}</option>`)].join('');
+    if (filterValor.dataset.mode !== 'asesor') { filterValor.innerHTML = opts; filterValor.dataset.mode = 'asesor'; }
+  } else {
+    filterValor.innerHTML = '<option value="">— selecciona —</option>';
+    filterValor.dataset.mode = '';
+  }
+  const selectedVal = filterValor.value;
+
+  let rows = [...criticos];
+  if (filterGrupo === 'lider'  && selectedVal) rows = rows.filter(r => String(r['LIDER'] ||'').trim() === selectedVal);
+  if (filterGrupo === 'asesor' && selectedVal) rows = rows.filter(r => String(r['ASESOR']||'').trim() === selectedVal);
+  if (search) rows = rows.filter(r =>
+    String(r['CONTRATO']).toLowerCase().includes(search) ||
+    String(r['CLIENTE']||'').toLowerCase().includes(search)
+  );
+
+  rows.sort((a,b) => {
+    const la=String(a['LIDER']||''), lb=String(b['LIDER']||'');
+    if (la!==lb) return la.localeCompare(lb);
+    const aa=String(a['ASESOR']||''), ab=String(b['ASESOR']||'');
+    if (aa!==ab) return aa.localeCompare(ab);
+    return parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  let tableRows = '';
+  let lastLider = null, lastAsesor = null;
+  rows.forEach(r => {
+    const lider  = String(r['LIDER']  || 'Sin Líder').trim();
+    const asesor = String(r['ASESOR'] || 'Sin Asesor').trim();
+    if (lider !== lastLider) {
+      const cnt = rows.filter(x => String(x['LIDER']||'Sin Líder').trim() === lider).length;
+      tableRows += `<tr class="grupo-header"><td colspan="11">👤 LÍDER: ${lider} &nbsp;·&nbsp; ${cnt} contrato(s)</td></tr>`;
+      lastLider = lider; lastAsesor = null;
+    }
+    if (asesor !== lastAsesor) {
+      const cnt = rows.filter(x =>
+        String(x['ASESOR']||'Sin Asesor').trim() === asesor &&
+        String(x['LIDER']||'Sin Líder').trim()   === lider).length;
+      tableRows += `<tr style="background:rgba(39,107,71,0.03)"><td colspan="11" style="padding-left:28px;font-size:12px;color:var(--text2);font-weight:600">↳ Asesor: ${asesor} · ${cnt} contrato(s)</td></tr>`;
+      lastAsesor = asesor;
+    }
+    tableRows += `<tr>
+      <td>${r['CONTRATO']}</td>
+      <td>${String(r['CLIENTE']||'').split(' ').slice(0,3).join(' ')}</td>
+      <td>${String(r['EMPRESA']||'').split(' ')[0]}</td>
+      <td>${r['NIVEL_MORA']||''}</td>
+      <td style="text-align:right;color:var(--p1);font-weight:700">${parseNum(r['DIAS_DE_MORA'])}</td>
+      <td style="text-align:right;color:var(--p1);font-weight:700">${parseNum(r['DIAS_DE_NO_PAGO'])}</td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(r['SALDO_VENCIDO'])}</td>
+      <td style="text-align:right">${fmtMoney(r['SALDO_CONTRATO'])}</td>
+      <td style="text-align:right">${fmtMoney(r['VALOR_CUOTA'])}</td>
+      <td>${r['ULTIMA_FECHA_PAGO']||'—'}</td>
+      <td>${r['TELEFONO_MOVIL']||r['TELEFONO']||'—'}</td>
+    </tr>`;
+  });
+
+  document.getElementById('tabla-criticos-detalle').innerHTML = `<table>
+    <thead><tr>
+      <th>Contrato</th><th>Cliente</th><th>Empresa</th><th>Nivel Mora</th>
+      <th style="text-align:right">Días Mora</th><th style="text-align:right">Días Sin Pago</th>
+      <th style="text-align:right">Saldo Vencido</th><th style="text-align:right">Saldo Contrato</th>
+      <th style="text-align:right">Valor Cuota</th><th>Últ. Pago</th><th>Teléfono</th>
+    </tr></thead>
+    <tbody>${tableRows || '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text2)">No se encontraron contratos críticos con los filtros actuales</td></tr>'}</tbody>
+  </table>`;
+}
+
+// ══════════════════════════════════════════
+// EXPORTAR EXCEL – MORA CRÍTICA
+// ══════════════════════════════════════════
+function exportarCriticos() {
+  const criticos = getCriticos();
+  if (!criticos.length) { alert('No hay contratos críticos para exportar.'); return; }
+
+  // Sort: Líder → Asesor → Días mora desc
+  const rows = [...criticos].sort((a,b) => {
+    const la = String(a['LIDER']||''), lb = String(b['LIDER']||'');
+    if (la !== lb) return la.localeCompare(lb);
+    const aa = String(a['ASESOR']||''), ab = String(b['ASESOR']||'');
+    if (aa !== ab) return aa.localeCompare(ab);
+    return parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  // Build workbook with 3 sheets
+  const wb = XLSX.utils.book_new();
+
+  // ── Sheet 1: Detalle completo ──
+  const detalle = rows.map(r => ({
+    'CONTRATO':        r['CONTRATO'],
+    'CLIENTE':         r['CLIENTE'],
+    'EMPRESA':         r['EMPRESA'],
+    'RUT':             r['NUMERO_DOCUMENTO'],
+    'LIDER':           r['LIDER'],
+    'ASESOR':          r['ASESOR'],
+    'NIVEL_MORA':      r['NIVEL_MORA'],
+    'DIAS_MORA':       parseNum(r['DIAS_DE_MORA']),
+    'DIAS_SIN_PAGO':   parseNum(r['DIAS_DE_NO_PAGO']),
+    'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+    'SALDO_CONTRATO': parseNum(r['SALDO_CONTRATO']),
+    'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+    'ULTIMA_FECHA_PAGO': r['ULTIMA_FECHA_PAGO'],
+    'TELEFONO':        r['TELEFONO'],
+    'TELEFONO_MOVIL':  r['TELEFONO_MOVIL'],
+    'EMAIL':           r['EMAIL'],
+    'REGION':          r['REGION'],
+    'COMUNA':          r['COMUNA'],
+    'DIRECCION':       r['DIRECCION_COBRO'],
+    'TIPO_CONTRATO':   r['TIPO_CONTRATO'],
+    'ESTADO_CONTRATO': r['ESTADO_CONTRATO'],
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle Críticos');
+
+  // ── Sheet 2: Resumen por Líder ──
+  const liderMap = {};
+  rows.forEach(r => {
+    const l = String(r['LIDER']||'Sin Líder').trim();
+    if (!liderMap[l]) liderMap[l] = { LIDER:l, CONTRATOS:0, SALDO_VENCIDO:0, SALDO_CONTRATO:0, VALOR_CUOTA:0 };
+    liderMap[l].CONTRATOS++;
+    liderMap[l].SALDO_VENCIDO  += getSaldoVencido(r);
+    liderMap[l].SALDO_CONTRATO += getSaldo(r);
+    liderMap[l].VALOR_CUOTA    += getCuota(r);
+  });
+  const liderData = Object.values(liderMap).sort((a,b) => b.CONTRATOS - a.CONTRATOS);
+  // Totals row
+  liderData.push({ LIDER:'TOTAL', CONTRATOS: liderData.reduce((s,d)=>s+d.CONTRATOS,0),
+    SALDO_VENCIDO: liderData.reduce((s,d)=>s+d.SALDO_VENCIDO,0),
+    SALDO_CONTRATO: liderData.reduce((s,d)=>s+d.SALDO_CONTRATO,0),
+    VALOR_CUOTA: liderData.reduce((s,d)=>s+d.VALOR_CUOTA,0) });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(liderData), 'Por Líder');
+
+  // ── Sheet 3: Resumen por Asesor ──
+  const asesorMap = {};
+  rows.forEach(r => {
+    const a = String(r['ASESOR']||'Sin Asesor').trim();
+    if (!asesorMap[a]) asesorMap[a] = { LIDER: String(r['LIDER']||'').trim(), ASESOR:a, CONTRATOS:0, SALDO_VENCIDO:0, SALDO_CONTRATO:0, VALOR_CUOTA:0 };
+    asesorMap[a].CONTRATOS++;
+    asesorMap[a].SALDO_VENCIDO  += getSaldoVencido(r);
+    asesorMap[a].SALDO_CONTRATO += getSaldo(r);
+    asesorMap[a].VALOR_CUOTA    += getCuota(r);
+  });
+  const asesorData = Object.values(asesorMap).sort((a,b) => {
+    if (a.LIDER !== b.LIDER) return a.LIDER.localeCompare(b.LIDER);
+    return b.CONTRATOS - a.CONTRATOS;
+  });
+  asesorData.push({ LIDER:'', ASESOR:'TOTAL', CONTRATOS: asesorData.reduce((s,d)=>s+d.CONTRATOS,0),
+    SALDO_VENCIDO: asesorData.reduce((s,d)=>s+d.SALDO_VENCIDO,0),
+    SALDO_CONTRATO: asesorData.reduce((s,d)=>s+d.SALDO_CONTRATO,0),
+    VALOR_CUOTA: asesorData.reduce((s,d)=>s+d.VALOR_CUOTA,0) });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(asesorData), 'Por Asesor');
+
+  // ── Download ──
+  const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+  const empKey = EMP_STATE['criticos'];
+  const empLabel = empKey === 'ambas' ? 'Ambas' : EMP_NAMES[empKey] || empKey;
+  XLSX.writeFile(wb, `Mora_Critica_${empLabel}_${fecha}.xlsx`);
+}
+
+// ══════════════════════════════════════════
+// BLOQUE 6 – SIN PAGO EN MORA
+// ══════════════════════════════════════════
+function getSinPago() {
+  const P = getP('sinpago');
+  // Cero Cuotas: sin ningún pago registrado + saldo vencido real
+  // Condición: CANT_CUOTAS_PAGADAS = 0  Y  CUOTAS_PENDIENTES = CANTIDAD_CUOTAS  Y  SALDO_VENCIDO > 0  Y  no INACTIVO
+  return P.carteraActiva.filter(r => {
+    if (String(r['ESTADO_CONTRATO']||'').trim() === 'INACTIVO') return false;
+    const pagadas       = parseNum(r['CANT_CUOTAS_PAGADAS']);
+    const pendientes    = parseNum(r['CUOTAS_PENDIENTES']);
+    const cantidad      = parseNum(r['CANTIDAD_CUOTAS']);
+    const saldoVencido  = getSaldoVencido(r);
+    return pagadas === 0 && cantidad > 0 && pendientes === cantidad && saldoVencido > 0;
+  });
+}
+
+// Helper compartido de rango (días de mora)
+// Clasificación por rango de días de mora — Bloque 6
+// Límites: ≤5 | 6–10 | 11–15 | 16–30 | >30 (estricto)
+function rangoMoraSP(dias) {
+  if (dias <= 5)  return '0-5';
+  if (dias <= 10) return '6-10';
+  if (dias <= 15) return '11-15';
+  if (dias <= 30) return '16-30';
+  return '31+';           // dias > 30, estricto
+}
+const RANGOS_SP = [
+  { key:'0-5',   label:'Menos de 5 días',  color:'var(--green-mid)' },
+  { key:'6-10',  label:'6 a 10 días',      color:'var(--p4)' },
+  { key:'11-15', label:'11 a 15 días',     color:'var(--p3)' },
+  { key:'16-30', label:'16 a 30 días',     color:'var(--p2)' },
+  { key:'31+',   label:'Mayor de 30 días', color:'var(--p1)' },
+];
+
+function renderSinPago() {
+  const allRows = getSinPago();
+
+  // ── KPIs globales (sobre todos los contratos Cero Cuotas) ──
+  const totalSaldo    = allRows.reduce((s,r) => s + getSaldoVencido(r),  0);
+  const totalContrato = allRows.reduce((s,r) => s + getSaldo(r), 0);
+  const totalCuota    = allRows.reduce((s,r) => s + getCuota(r),    0);
+  const nLideres  = new Set(allRows.map(r => r['LIDER']  || 'Sin Líder')).size;
+  const nAsesores = new Set(allRows.map(r => r['ASESOR'] || 'Sin Asesor')).size;
+
+  // KPI por rango de días mora
+  const rangoCount = {};
+  allRows.forEach(r => {
+    const k = rangoMoraSP(parseNum(r['DIAS_DE_MORA']));
+    rangoCount[k] = (rangoCount[k] || 0) + 1;
+  });
+  const rangoKpis = RANGOS_SP.map(rg => {
+    const cnt = rangoCount[rg.key] || 0;
+    const pct = allRows.length > 0 ? (cnt / allRows.length * 100).toFixed(0) : 0;
+    return `<div class="kpi-card" style="border-left:4px solid ${rg.color};cursor:pointer"
+      onclick="document.getElementById('filter-sinpago-rango').value='${rg.key}';renderSinPago()">
+      <div class="kpi-label">${rg.label}</div>
+      <div class="kpi-value" style="color:${rg.color}">${cnt}</div>
+      <div class="kpi-sub">${pct}% · clic para filtrar</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('kpis-sinpago').innerHTML = `
+    <div class="kpi-card red"><div class="kpi-label">Total Cero Cuotas</div>
+      <div class="kpi-value" style="color:var(--p1)">${allRows.length}</div>
+      <div class="kpi-sub">Pagadas=0 · Pendientes=Total</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Saldo Vencido</div>
+      <div class="kpi-value" style="color:var(--p1)">${fmtMoney(totalSaldo)}</div>
+      <div class="kpi-sub">Saldo contrato: ${fmtMoney(totalContrato)}</div></div>
+    <div class="kpi-card dark"><div class="kpi-label">Cuotas Mensuales</div>
+      <div class="kpi-value">${fmtMoney(totalCuota)}</div>
+      <div class="kpi-sub">Cuotas totales pendientes</div></div>
+    <div class="kpi-card lite"><div class="kpi-label">Líderes / Asesores</div>
+      <div class="kpi-value" style="color:var(--green-dark)">${nLideres} / ${nAsesores}</div>
+      <div class="kpi-sub">involucrados</div></div>
+    ${rangoKpis}
+  `;
+
+  // ── Aplicar filtro de rango primero (para resúmenes reactivos) ──
+  const filterRango = document.getElementById('filter-sinpago-rango').value;
+  const baseRows = filterRango
+    ? allRows.filter(r => rangoMoraSP(parseNum(r['DIAS_DE_MORA'])) === filterRango)
+    : allRows;
+
+  // ── Resumen por Líder (sobre baseRows filtrado por rango) ──
+  const liderMap = {};
+  baseRows.forEach(r => {
+    const l = String(r['LIDER']||'Sin Líder').trim();
+    if (!liderMap[l]) liderMap[l] = { contratos:0, saldoVencido:0, totalContrato:0, cuotas:0 };
+    liderMap[l].contratos++;
+    liderMap[l].saldoVencido  += getSaldoVencido(r);
+    liderMap[l].totalContrato += getSaldo(r);
+    liderMap[l].cuotas        += getCuota(r);
+  });
+  const liderRows = Object.entries(liderMap).sort((a,b) => b[1].contratos - a[1].contratos);
+  const rangoLabel = filterRango ? (RANGOS_SP.find(x=>x.key===filterRango)||{label:''}).label : 'todos los rangos';
+  document.getElementById('count-sinpago-lider').textContent = `${liderRows.length} líderes · ${rangoLabel}`;
+  document.getElementById('tabla-sinpago-lider').innerHTML = `<table><thead><tr>
+    <th>Líder</th><th style="text-align:right">Contratos</th><th style="text-align:right">Saldo Vencido</th><th style="text-align:right">Valor Cuotas</th>
+  </tr></thead><tbody>
+    ${liderRows.map(([l,d]) => `<tr>
+      <td>${l}</td>
+      <td style="text-align:right"><span style="color:var(--p2);font-weight:700">${d.contratos}</span></td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(d.saldoVencido)}</td>
+      <td style="text-align:right">${fmtMoney(d.cuotas)}</td>
+    </tr>`).join('')}
+    <tr style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border)">
+      <td>TOTAL</td>
+      <td style="text-align:right;color:var(--p2)">${baseRows.length}</td>
+      <td style="text-align:right;color:var(--p2)">${fmtMoney(baseRows.reduce((s,r)=>s+getSaldoVencido(r),0))}</td>
+      <td style="text-align:right">${fmtMoney(baseRows.reduce((s,r)=>s+getCuota(r),0))}</td>
+    </tr>
+  </tbody></table>`;
+
+  // ── Resumen por Asesor (sobre baseRows) ──
+  const asesorMap = {};
+  baseRows.forEach(r => {
+    const a = String(r['ASESOR']||'Sin Asesor').trim();
+    if (!asesorMap[a]) asesorMap[a] = { lider:String(r['LIDER']||'').trim(), contratos:0, saldoVencido:0, cuotas:0 };
+    asesorMap[a].contratos++;
+    asesorMap[a].saldoVencido += getSaldoVencido(r);
+    asesorMap[a].cuotas       += getCuota(r);
+  });
+  const asesorRows = Object.entries(asesorMap).sort((a,b) => b[1].contratos - a[1].contratos);
+  document.getElementById('count-sinpago-asesor').textContent = `${asesorRows.length} asesores · ${rangoLabel}`;
+  document.getElementById('tabla-sinpago-asesor').innerHTML = `<table><thead><tr>
+    <th>Asesor</th><th>Líder</th><th style="text-align:right">Contratos</th><th style="text-align:right">Saldo Vencido</th>
+  </tr></thead><tbody>
+    ${asesorRows.map(([a,d]) => `<tr>
+      <td>${a}</td>
+      <td style="color:var(--text2);font-size:12px">${d.lider}</td>
+      <td style="text-align:right"><span style="color:var(--p2);font-weight:700">${d.contratos}</span></td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(d.saldoVencido)}</td>
+    </tr>`).join('')}
+  </tbody></table>`;
+
+  // ── Filtros adicionales sobre la tabla de detalle ──
+  const filterGrupo = document.getElementById('filter-sinpago-grupo').value;
+  const filterValor = document.getElementById('filter-sinpago-valor');
+  const search      = (document.getElementById('search-sinpago').value || '').toLowerCase();
+
+  // Dropdown líder/asesor reactivo al rango seleccionado
+  if (filterGrupo === 'lider') {
+    const opts = ['<option value="">— Todos los líderes —</option>',
+      ...liderRows.map(([l]) => `<option value="${l}">${l}</option>`)].join('');
+    if (filterValor.dataset.mode !== 'lider') { filterValor.innerHTML = opts; filterValor.dataset.mode = 'lider'; }
+  } else if (filterGrupo === 'asesor') {
+    const opts = ['<option value="">— Todos los asesores —</option>',
+      ...asesorRows.map(([a]) => `<option value="${a}">${a}</option>`)].join('');
+    if (filterValor.dataset.mode !== 'asesor') { filterValor.innerHTML = opts; filterValor.dataset.mode = 'asesor'; }
+  } else {
+    filterValor.innerHTML = '<option value="">— selecciona —</option>';
+    filterValor.dataset.mode = '';
+  }
+  const selectedVal = filterValor.value;
+
+  // Aplicar todos los filtros combinados
+  let filtered = [...baseRows];
+  if (filterGrupo === 'lider'  && selectedVal) filtered = filtered.filter(r => String(r['LIDER'] ||'').trim() === selectedVal);
+  if (filterGrupo === 'asesor' && selectedVal) filtered = filtered.filter(r => String(r['ASESOR']||'').trim() === selectedVal);
+  if (search) filtered = filtered.filter(r =>
+    String(r['CONTRATO']).toLowerCase().includes(search) ||
+    String(r['CLIENTE']||'').toLowerCase().includes(search)
+  );
+
+  filtered.sort((a,b) => {
+    const la=String(a['LIDER']||''), lb=String(b['LIDER']||'');
+    if (la!==lb) return la.localeCompare(lb);
+    const aa=String(a['ASESOR']||''), ab=String(b['ASESOR']||'');
+    if (aa!==ab) return aa.localeCompare(ab);
+    return parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  let tableRows = '';
+  let lastLider2 = null, lastAsesor2 = null;
+  filtered.forEach(r => {
+    const lider  = String(r['LIDER']  || 'Sin Líder').trim();
+    const asesor = String(r['ASESOR'] || 'Sin Asesor').trim();
+    const diasM  = parseNum(r['DIAS_DE_MORA']);
+    const rk     = rangoMoraSP(diasM);
+    const rInfo  = RANGOS_SP.find(x => x.key === rk) || RANGOS_SP[RANGOS_SP.length-1];
+
+    if (lider !== lastLider2) {
+      const cnt = filtered.filter(x => String(x['LIDER']||'Sin Líder').trim() === lider).length;
+      tableRows += `<tr class="grupo-header"><td colspan="11">👤 LÍDER: ${lider} &nbsp;·&nbsp; ${cnt} contrato(s)</td></tr>`;
+      lastLider2 = lider; lastAsesor2 = null;
+    }
+    if (asesor !== lastAsesor2) {
+      const cnt = filtered.filter(x =>
+        String(x['ASESOR']||'Sin Asesor').trim() === asesor &&
+        String(x['LIDER']||'Sin Líder').trim()   === lider).length;
+      tableRows += `<tr style="background:rgba(39,107,71,0.03)"><td colspan="11" style="padding-left:28px;font-size:12px;color:var(--text2);font-weight:600">↳ Asesor: ${asesor} · ${cnt} contrato(s)</td></tr>`;
+      lastAsesor2 = asesor;
+    }
+    tableRows += `<tr>
+      <td>${r['CONTRATO']}</td>
+      <td>${String(r['CLIENTE']||'').split(' ').slice(0,3).join(' ')}</td>
+      <td>${String(r['EMPRESA']||'').split(' ')[0]}</td>
+      <td>${r['TIPO_CONTRATO']||'—'}</td>
+      <td>${r['NIVEL_MORA']||''}</td>
+      <td style="text-align:right">
+        <span style="color:${rInfo.color};font-weight:700">${diasM}</span>
+        <span style="font-size:10px;color:${rInfo.color};margin-left:3px">${rInfo.label}</span>
+      </td>
+      <td style="text-align:right;color:var(--p2);font-weight:700">${parseNum(r['DIAS_DE_NO_PAGO'])}</td>
+      <td style="text-align:right;color:var(--p2);font-weight:600">${fmtMoney(r['SALDO_VENCIDO'])}</td>
+      <td style="text-align:right">${fmtMoney(r['SALDO_CONTRATO'])}</td>
+      <td style="text-align:right">${fmtMoney(r['VALOR_CUOTA'])}</td>
+      <td>${r['TELEFONO_MOVIL']||r['TELEFONO']||'—'}</td>
+    </tr>`;
+  });
+
+  document.getElementById('tabla-sinpago-detalle').innerHTML = `<table>
+    <thead><tr>
+      <th>Contrato</th><th>Cliente</th><th>Empresa</th><th>Tipo Contrato</th><th>Nivel Mora</th>
+      <th style="text-align:right">Días Mora</th><th style="text-align:right">Días Sin Pago</th>
+      <th style="text-align:right">Saldo Vencido</th><th style="text-align:right">Saldo Contrato</th>
+      <th style="text-align:right">Valor Cuota</th><th>Teléfono</th>
+    </tr></thead>
+    <tbody>${tableRows || '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--text2)">No se encontraron contratos con los filtros actuales</td></tr>'}</tbody>
+  </table>`;
+}
+
+// ── Exportar Excel Sin Pago ──
+function exportarSinPago() {
+  const rows = getSinPago();
+  if (!rows.length) { alert('No hay contratos Cero Cuotas para exportar.'); return; }
+
+  const sorted = [...rows].sort((a,b) => {
+    const la=String(a['LIDER']||''), lb=String(b['LIDER']||'');
+    if (la!==lb) return la.localeCompare(lb);
+    const aa=String(a['ASESOR']||''), ab=String(b['ASESOR']||'');
+    if (aa!==ab) return aa.localeCompare(ab);
+    return parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  const wb = XLSX.utils.book_new();
+
+  const detalle = sorted.map(r => ({
+    'CONTRATO':          r['CONTRATO'],
+    'CLIENTE':           r['CLIENTE'],
+    'EMPRESA':           r['EMPRESA'],
+    'RUT':               r['NUMERO_DOCUMENTO'],
+    'LIDER':             r['LIDER'],
+    'ASESOR':            r['ASESOR'],
+    'TIPO_CONTRATO':     r['TIPO_CONTRATO'],
+    'ESTADO_CONTRATO':   r['ESTADO_CONTRATO'],
+    'NIVEL_MORA':        r['NIVEL_MORA'],
+    'DIAS_MORA':         parseNum(r['DIAS_DE_MORA']),
+    'DIAS_SIN_PAGO':     parseNum(r['DIAS_DE_NO_PAGO']),
+    'CUOTAS_PAGADAS':    parseNum(r['CANT_CUOTAS_PAGADAS']),
+    'CUOTAS_PENDIENTES': parseNum(r['CUOTAS_PENDIENTES']),
+    'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+    'SALDO_CONTRATO': parseNum(r['SALDO_CONTRATO']),
+    'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+    'TOTAL_CONTRATO':    parseNum(r['TOTAL_CONTRATO']),
+    'FECHA_CONTRATO':    r['FECHA_CONTRATO_F'],
+    'FECHA_ACTIVACION':  r['FECHA_ACTIVACION'],
+    'TELEFONO':          r['TELEFONO'],
+    'TELEFONO_MOVIL':    r['TELEFONO_MOVIL'],
+    'EMAIL':             r['EMAIL'],
+    'REGION':            r['REGION'],
+    'COMUNA':            r['COMUNA'],
+    'DIRECCION':         r['DIRECCION_COBRO'],
+  }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(detalle), 'Detalle Cero Cuotas');
+
+  const lMap = {};
+  sorted.forEach(r => {
+    const l = String(r['LIDER']||'Sin Líder').trim();
+    if (!lMap[l]) lMap[l] = { LIDER:l, CONTRATOS:0, SALDO_VENCIDO:0, SALDO_CONTRATO:0, VALOR_CUOTA:0 };
+    lMap[l].CONTRATOS++; lMap[l].SALDO_VENCIDO+=getSaldoVencido(r);
+    lMap[l].SALDO_CONTRATO+=getSaldo(r); lMap[l].VALOR_CUOTA+=getCuota(r);
+  });
+  const lData = Object.values(lMap).sort((a,b)=>b.CONTRATOS-a.CONTRATOS);
+  lData.push({ LIDER:'TOTAL', CONTRATOS:lData.reduce((s,d)=>s+d.CONTRATOS,0),
+    SALDO_VENCIDO:lData.reduce((s,d)=>s+d.SALDO_VENCIDO,0),
+    SALDO_CONTRATO:lData.reduce((s,d)=>s+d.SALDO_CONTRATO,0),
+    VALOR_CUOTA:lData.reduce((s,d)=>s+d.VALOR_CUOTA,0) });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(lData), 'Por Líder');
+
+  const aMap = {};
+  sorted.forEach(r => {
+    const a = String(r['ASESOR']||'Sin Asesor').trim();
+    if (!aMap[a]) aMap[a] = { LIDER:String(r['LIDER']||'').trim(), ASESOR:a, CONTRATOS:0, SALDO_VENCIDO:0, SALDO_CONTRATO:0, VALOR_CUOTA:0 };
+    aMap[a].CONTRATOS++; aMap[a].SALDO_VENCIDO+=getSaldoVencido(r);
+    aMap[a].SALDO_CONTRATO+=getSaldo(r); aMap[a].VALOR_CUOTA+=getCuota(r);
+  });
+  const aData = Object.values(aMap).sort((a,b)=>{ if(a.LIDER!==b.LIDER) return a.LIDER.localeCompare(b.LIDER); return b.CONTRATOS-a.CONTRATOS; });
+  aData.push({ LIDER:'', ASESOR:'TOTAL', CONTRATOS:aData.reduce((s,d)=>s+d.CONTRATOS,0),
+    SALDO_VENCIDO:aData.reduce((s,d)=>s+d.SALDO_VENCIDO,0),
+    SALDO_CONTRATO:aData.reduce((s,d)=>s+d.SALDO_CONTRATO,0),
+    VALOR_CUOTA:aData.reduce((s,d)=>s+d.VALOR_CUOTA,0) });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(aData), 'Por Asesor');
+
+  const fecha    = new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+  const empKey   = EMP_STATE['sinpago'];
+  const empLabel = empKey === 'ambas' ? 'Ambas' : EMP_NAMES[empKey] || empKey;
+  XLSX.writeFile(wb, `Cero_Cuotas_${empLabel}_${fecha}.xlsx`);
+}
+
+// ── Exportar solo la tabla de detalle filtrada (rango + líder/asesor + búsqueda) ──
+function exportarSinPagoDetalle() {
+  const allRows = getSinPago();
+  if (!allRows.length) { alert('No hay contratos Cero Cuotas para exportar.'); return; }
+
+  // Replicar exactamente los mismos filtros que renderSinPago aplica al detalle
+  const filterRango = document.getElementById('filter-sinpago-rango').value;
+  const filterGrupo = document.getElementById('filter-sinpago-grupo').value;
+  const filterValor = document.getElementById('filter-sinpago-valor').value;
+  const search      = (document.getElementById('search-sinpago').value || '').toLowerCase();
+
+  let filtered = filterRango
+    ? allRows.filter(r => rangoMoraSP(parseNum(r['DIAS_DE_MORA'])) === filterRango)
+    : [...allRows];
+
+  if (filterGrupo === 'lider'  && filterValor) filtered = filtered.filter(r => String(r['LIDER'] ||'').trim() === filterValor);
+  if (filterGrupo === 'asesor' && filterValor) filtered = filtered.filter(r => String(r['ASESOR']||'').trim() === filterValor);
+  if (search) filtered = filtered.filter(r =>
+    String(r['CONTRATO']).toLowerCase().includes(search) ||
+    String(r['CLIENTE']||'').toLowerCase().includes(search)
+  );
+
+  filtered.sort((a,b) => {
+    const la=String(a['LIDER']||''), lb=String(b['LIDER']||'');
+    if (la!==lb) return la.localeCompare(lb);
+    const aa=String(a['ASESOR']||''), ab=String(b['ASESOR']||'');
+    if (aa!==ab) return aa.localeCompare(ab);
+    return parseNum(b['DIAS_DE_MORA']) - parseNum(a['DIAS_DE_MORA']);
+  });
+
+  if (!filtered.length) { alert('No hay contratos con los filtros actuales.'); return; }
+
+  const data = filtered.map(r => ({
+    'CONTRATO':          r['CONTRATO'],
+    'CLIENTE':           r['CLIENTE'],
+    'EMPRESA':           r['EMPRESA'],
+    'TELEFONO':          r['TELEFONO'],
+    'TELEFONO_MOVIL':    r['TELEFONO_MOVIL'],
+    'EMAIL':             r['EMAIL'],
+    'LIDER':             r['LIDER'],
+    'ASESOR':            r['ASESOR'],
+    'NIVEL_MORA':        r['NIVEL_MORA'],
+    'DIAS_MORA':         parseNum(r['DIAS_DE_MORA']),
+    'DIAS_SIN_PAGO':     parseNum(r['DIAS_DE_NO_PAGO']),
+    'CUOTAS_PAGADAS':    parseNum(r['CANT_CUOTAS_PAGADAS']),
+    'CUOTAS_PENDIENTES': parseNum(r['CUOTAS_PENDIENTES']),
+    'VALOR_CUOTA': parseNum(r['VALOR_CUOTA']),
+    'SALDO_VENCIDO': parseNum(r['SALDO_VENCIDO']),
+    'SALDO_CONTRATO': parseNum(r['SALDO_CONTRATO']),
+  }));
+
+  // Nombre del archivo refleja los filtros activos
+  const partes = ['CeroCuotas_Detalle'];
+  if (filterRango) partes.push(filterRango);
+  if (filterGrupo && filterValor) partes.push(filterValor.replace(/\s+/g,'_').slice(0,20));
+  const fecha = new Date().toLocaleDateString('es-CL').replace(/\//g,'-');
+  partes.push(fecha);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Detalle Filtrado');
+  XLSX.writeFile(wb, partes.join('_') + '.xlsx');
+}
+</script>
+</body>
+</html>
