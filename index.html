@@ -288,8 +288,8 @@ if (typeof ChartDataLabels !== 'undefined') {
 <div id="upload-screen">
   <div class="upload-logo">⬤ Control de Cobranza — PF & VU</div>
   <div class="upload-title">Dashboard de<br><span>Recuperación Diaria</span></div>
-  <div class="upload-subtitle" id="upload-subtitle">Los datos se guardan en este navegador. Sube solo lo que haya cambiado.</div>
-
+  <!--<div class="upload-subtitle" id="upload-subtitle">Los datos se guardan en este navegador. Sube solo lo que haya cambiado.</div>-->
+  <div class="upload-subtitle" id="upload-subtitle">Los datos se publican en GitHub y quedan disponibles para todos. Sube solo lo que haya cambiado.</div>
   <div class="upload-groups">
     <!-- PF -->
     <div class="upload-group">
@@ -356,6 +356,41 @@ if (typeof ChartDataLabels !== 'undefined') {
 
   <div class="upload-status" id="upload-status">Verificando datos guardados...</div>
   <button class="btn-launch" id="btn-launch" onclick="launchDashboard()">Abrir Dashboard →</button>
+</div>
+
+  <div style="display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:6px;margin-bottom:6px;">
+  <button class="btn-launch ready" type="button" style="padding:10px 20px;opacity:1;pointer-events:auto;" onclick="toggleGitHubAdmin()">🔐 Admin GitHub</button>
+</div>
+
+<div id="github-admin-box" style="display:none;background:#fff;border:1px solid #d4e4da;border-radius:12px;padding:16px;max-width:760px;width:100%;box-shadow:0 2px 10px rgba(39,107,71,0.08);">
+  <div style="font-family:var(--font-head);font-weight:800;font-size:14px;color:var(--green-darkest);margin-bottom:12px;">
+    Configuración GitHub
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Usuario GitHub</div>
+      <input id="gh-user" type="text" value="SlicitudesGIM" style="width:100%;padding:8px 10px;border:1px solid #d4e4da;border-radius:8px;">
+    </div>
+    <div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Repositorio</div>
+      <input id="gh-repo" type="text" value="dashboard-cobranza" style="width:100%;padding:8px 10px;border:1px solid #d4e4da;border-radius:8px;">
+    </div>
+    <div style="grid-column:span 2;">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Token PAT</div>
+      <input id="gh-token" type="password" placeholder="ghp_xxx o github_pat_xxx" style="width:100%;padding:8px 10px;border:1px solid #d4e4da;border-radius:8px;">
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+    <button type="button" class="btn-export" onclick="ghGuardarConfig()">💾 Guardar config</button>
+    <button type="button" class="btn-export" onclick="ghActivarAdmin()">✅ Activar admin</button>
+    <button type="button" class="btn-export" onclick="ghCerrarAdmin()" style="background:#fff;color:#276b47;border:1px solid #276b47;">Cerrar</button>
+  </div>
+
+  <div style="font-size:11px;color:var(--text2);margin-top:10px;">
+    El token solo lo usa el admin para subir y reemplazar archivos en GitHub.
+  </div>
 </div>
 
 <!-- ══════════ MAIN APP ══════════ -->
@@ -957,11 +992,17 @@ function markCard(type, meta) {
 // ══════════════════════════════════════════
 // UPLOAD
 // ══════════════════════════════════════════
-function handleFile(input, type) {
+async function handleFile(input, type) {
   const file = input.files[0];
   if (!file) return;
 
-  // Show loading state
+  // Si el admin activó token => sube a GitHub y reemplaza
+  if (GH.isAdmin && GH.token) {
+    await ghSubirArchivo(type, file);
+    return;
+  }
+
+  // Si no hay token admin => comportamiento local de respaldo
   const card = document.getElementById('card-' + type);
   if (card) card.style.opacity = '0.6';
 
@@ -974,7 +1015,6 @@ function handleFile(input, type) {
 
       RAW[type] = rows;
 
-      // Detect empresa name
       const empField = rows[0] ? String(rows[0]['EMPRESA'] || '').trim() : '';
       if (empField) {
         const eKey = type.includes('1') ? 'e1' : 'e2';
@@ -982,43 +1022,28 @@ function handleFile(input, type) {
         metaSaveNames(EMP_NAMES);
       }
 
-      // Save to IndexedDB (sin límite de tamaño)
-      const meta = { savedAt: new Date().toISOString(), rows: rows.length, filename: file.name };
-      try {
-        await dbSave(type, rows);
-        metaSave(type, meta);
-      } catch(dbErr) {
-        console.warn('IndexedDB save error (datos en memoria solamente):', dbErr);
-      }
+      const meta = {
+        savedAt: new Date().toISOString(),
+        rows: rows.length,
+        filename: file.name
+      };
+
+      await dbSave(type, rows);
+      metaSave(type, meta);
 
       if (card) card.style.opacity = '1';
       markCard(type, meta);
       updateUploadStatus();
 
-      // Si el dashboard ya está abierto, reprocesar y re-renderizar automáticamente
       if (document.getElementById('app').style.display !== 'none') {
         processAll();
-        const activeEl = document.querySelector('.section.active, .section-inner.active');
-        const activeSec = activeEl ? activeEl.id.replace('section-','') : 'metas';
-        if (activeSec === 'gestion') {
-          renderSection(GESTION_ACTIVE);
-        } else {
-          renderSection(activeSec);
-        }
-        // También pre-renderizar resumen y metas en segundo plano
-        if (activeSec !== 'metas')   renderMetas();
-        if (activeSec !== 'resumen') renderResumen();
       }
-
     } catch(err) {
       if (card) card.style.opacity = '1';
-      alert('Error leyendo ' + file.name + ':\n' + err.message);
+      alert('Error al procesar archivo: ' + err.message);
     }
   };
-  reader.onerror = () => {
-    if (card) card.style.opacity = '1';
-    alert('No se pudo leer el archivo. Intenta de nuevo.');
-  };
+
   reader.readAsBinaryString(file);
 }
 
@@ -1085,24 +1110,269 @@ function launchDashboard() {
   renderAll();
 }
 
+// INICIO EDW NEW FUNCTION// 
+
+ 
+/* =========================================================
+   GITHUB SYNC — COBRANZA
+   ========================================================= */
+
+const GH = {
+  user: 'SlicitudesGIM',
+  repo: 'dashboard-cobranza',
+  token: '',
+  isAdmin: false
+};
+
+const GH_FILES = {
+  cartinicial1: 'Cartera_Mes_PF.xlsx',
+  cartinicial2: 'Cartera_Mes_VU.xlsx',
+  cartera1:     'Cartera_Final_PF.xlsx',
+  recaudo1:     'Recaudo_Cuota_PF.xlsx',
+  cartera2:     'Cartera_Final_VU.xlsx',
+  recaudo2:     'Recaudo_Cuota_VU.xlsx'
+};
+
+function ghRawUrl(filename) {
+  return `https://raw.githubusercontent.com/${GH.user}/${GH.repo}/main/datos/${filename}?t=${Date.now()}`;
+}
+
+function ghApiUrl(filename) {
+  return `https://api.github.com/repos/${GH.user}/${GH.repo}/contents/datos/${filename}`;
+}
+
+function toggleGitHubAdmin() {
+  const box = document.getElementById('github-admin-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+}
+
+function ghCerrarAdmin() {
+  document.getElementById('github-admin-box').style.display = 'none';
+}
+
+function ghGuardarConfig() {
+  GH.user  = document.getElementById('gh-user').value.trim();
+  GH.repo  = document.getElementById('gh-repo').value.trim();
+  GH.token = document.getElementById('gh-token').value.trim();
+
+  localStorage.setItem('cobranza_gh_cfg', JSON.stringify({
+    user: GH.user,
+    repo: GH.repo
+  }));
+
+  alert('Configuración GitHub guardada.');
+}
+
+function ghLoadConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('cobranza_gh_cfg') || '{}');
+    if (cfg.user) GH.user = cfg.user;
+    if (cfg.repo) GH.repo = cfg.repo;
+  } catch(e) {}
+
+  const u = document.getElementById('gh-user');
+  const r = document.getElementById('gh-repo');
+  if (u) u.value = GH.user;
+  if (r) r.value = GH.repo;
+}
+
+function ghActivarAdmin() {
+  GH.user  = document.getElementById('gh-user').value.trim();
+  GH.repo  = document.getElementById('gh-repo').value.trim();
+  GH.token = document.getElementById('gh-token').value.trim();
+
+  if (!GH.user || !GH.repo || !GH.token) {
+    alert('Completa usuario, repositorio y token.');
+    return;
+  }
+
+  GH.isAdmin = true;
+  alert('Modo administrador activado.');
+}
+
+async function procesarArchivoDesdeBuffer(buf, type, filename) {
+  const wb   = XLSX.read(buf, { type:'array' });
+  const ws   = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+  RAW[type] = rows;
+
+  const empField = rows[0] ? String(rows[0]['EMPRESA'] || '').trim() : '';
+  if (empField) {
+    const eKey = type.includes('1') ? 'e1' : 'e2';
+    EMP_NAMES[eKey] = empField;
+    metaSaveNames(EMP_NAMES);
+  }
+
+  const meta = {
+    savedAt: new Date().toISOString(),
+    rows: rows.length,
+    filename: filename || GH_FILES[type] || ''
+  };
+
+  try {
+    await dbSave(type, rows);
+    metaSave(type, meta);
+  } catch(e) {
+    console.warn('No se pudo guardar cache local', e);
+  }
+
+  markCard(type, meta);
+}
+
+async function ghCargarTodos() {
+  ghLoadConfig();
+
+  const status = document.getElementById('upload-status');
+  if (status) status.textContent = 'Consultando archivos publicados en GitHub...';
+
+  let loaded = 0;
+
+  for (const [type, filename] of Object.entries(GH_FILES)) {
+    try {
+      const res = await fetch(ghRawUrl(filename));
+      if (!res.ok) continue;
+
+      const buf = await res.arrayBuffer();
+      await procesarArchivoDesdeBuffer(buf, type, filename);
+      loaded++;
+    } catch(e) {
+      console.warn('No se pudo cargar desde GitHub:', filename, e);
+    }
+  }
+
+  updateUploadStatus();
+
+  if (loaded > 0) {
+    processAll();
+  }
+
+  return loaded;
+}
+
+async function ghSubirArchivo(type, file) {
+  if (!GH.isAdmin || !GH.token) {
+    alert('Activa modo admin con token primero.');
+    return false;
+  }
+
+  const filename = GH_FILES[type];
+  if (!filename) {
+    alert('No existe nombre GitHub configurado para ' + type);
+    return false;
+  }
+
+  const card = document.getElementById('card-' + type);
+  if (card) card.style.opacity = '0.6';
+
+  try {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    const content = btoa(binary);
+
+    let sha = '';
+    try {
+      const getRes = await fetch(ghApiUrl(filename), {
+        headers: {
+          'Authorization': 'token ' + GH.token,
+          'Accept': 'application/vnd.github+json'
+        }
+      });
+      if (getRes.ok) {
+        const getJson = await getRes.json();
+        sha = getJson.sha || '';
+      }
+    } catch(e) {}
+
+    const putRes = await fetch(ghApiUrl(filename), {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'token ' + GH.token,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: `Actualizar ${filename} - ${new Date().toLocaleString('es-CL')}`,
+        content: content,
+        ...(sha ? { sha } : {})
+      })
+    });
+
+    const putJson = await putRes.json();
+
+    if (!putRes.ok) {
+      throw new Error(putJson.message || 'Error al subir a GitHub');
+    }
+
+    await procesarArchivoDesdeBuffer(buf, type, filename);
+
+    if (card) card.style.opacity = '1';
+
+    updateUploadStatus();
+
+    if (document.getElementById('app').style.display !== 'none') {
+      processAll();
+      const activeEl = document.querySelector('.section.active, .section-inner.active');
+      const activeSec = activeEl ? activeEl.id.replace('section-','') : 'metas';
+      if (activeSec === 'gestion') renderSection(GESTION_ACTIVE);
+      else renderSection(activeSec);
+    }
+
+    return true;
+  } catch(err) {
+    if (card) card.style.opacity = '1';
+    alert('Error al subir a GitHub: ' + err.message);
+    return false;
+  }
+}
+
+
+//FIN EDW NEW FUNCTION//  
+
+
+  
+
+  
+
 // ══════════════════════════════════════════
 // INIT ON PAGE LOAD
 // ══════════════════════════════════════════
-window.addEventListener('load', async () => {
-  // Wire file inputs via addEventListener
-  [['file-cartinicial1','cartinicial1'],['file-cartera1','cartera1'],['file-recaudo1','recaudo1'],
-   ['file-cartinicial2','cartinicial2'],['file-cartera2','cartera2'],['file-recaudo2','recaudo2']].forEach(([id, type]) => {
+document.addEventListener('DOMContentLoaded', async () => {
+  ghLoadConfig();
+
+  // primero intenta GitHub
+  const loadedFromGitHub = await ghCargarTodos();
+
+  // si no encontró nada en GitHub, usa respaldo local
+  if (!loadedFromGitHub) {
+    await initFromStorage();
+  }
+
+  const inputs = [
+    ['file-cartinicial1','cartinicial1'],
+    ['file-cartera1','cartera1'],
+    ['file-recaudo1','recaudo1'],
+    ['file-cartinicial2','cartinicial2'],
+    ['file-cartera2','cartera2'],
+    ['file-recaudo2','recaudo2']
+  ];
+
+  inputs.forEach(([id, type]) => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('change', function() { handleFile(this, type); });
+    if (el) {
+      el.addEventListener('change', function() {
+        handleFile(this, type);
+      });
+    }
   });
 
-  await initFromStorage();
-
-  if (RAW.cartera1.length > 0 && RAW.recaudo1.length > 0) {
-    document.getElementById('upload-subtitle').textContent =
-      '✅ Datos guardados encontrados. Puedes abrir el dashboard o actualizar archivos.';
-    document.getElementById('btn-launch').textContent = 'Abrir Dashboard →';
-  }
+  updateUploadStatus();
 });
 
 // ══════════════════════════════════════════
